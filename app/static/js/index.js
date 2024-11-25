@@ -1,5 +1,3 @@
-const signUpButton = document.getElementById('sign-up2');
-
-signInButton.addEventListener("click", async () => {
-    window.location.href = "/login_signup";
-});
+document.getElementById('sign-up2').addEventListener('click', function() {
+    window.location.href = "{{ url_for('login_signup') }}";
+  });
