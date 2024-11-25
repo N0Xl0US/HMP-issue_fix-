@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthy Meal Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="form-container sign-up-container">
+            <form action="/signup" method="POST">
+                <h1>Create Account</h1>
+                <div class="social-container">
+                    <a href="#" class="social"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="social"><i class="fab fa-google"></i></a>
+                </div>
+                <span>or use your email for registration</span>
+                <input type="text" name="name" placeholder="Name" required />
+                <input type="email" name="email" placeholder="Email" required />
+                <input type="password" name="password" placeholder="Password" required />
+                <button type="submit">Sign Up</button>
+            </form>
+        </div>
+
+        <div class="form-container sign-in-container">
+            <form action="/login" method="POST">
+                <h1>Sign in</h1>
+                <div class="social-container">
+                    <a href="#" class="social"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="social"><i class="fab fa-google"></i></a>
+                </div>
+                <span>or use your account</span>
+                <input type="email" name="email" placeholder="Email" required />
+                <input type="password" name="password" placeholder="Password" required />
+                <a href="#" id="forgot-password-link">Forgot your password?</a>
+                <button type="submit">Sign In</button>
+            </form>
+        </div>
+
+        <div class="form-container forgot-password-container" style="display:none;">
+            <form id="forgot-password-form">
+                <h1>Forgot Password</h1>
+                <input type="email" id="forgot-email" placeholder="Enter your email" required />
+                <button type="submit">Submit</button>
+            </form>
+        
+            <form id="otp-form" style="display: none;">
+                <h1>Verify OTP</h1>
+                <input type="text" id="otp" placeholder="Enter OTP" required />
+                <button type="button" id="verify-otp-btn">Verify</button>
+            </form>
+        
+            <form id="reset-password-form" style="display: none;">
+                <h1>Reset Password</h1>
+                <input type="password" id="new-password" placeholder="New Password" required />
+                <input type="password" id="confirm-password" placeholder="Confirm Password" required />
+                <button type="button" id="reset-password-btn">Reset</button>
+            </form>
+        </div>
+
+        <div class="overlay-container">
+            <div class="overlay">
+                <div class="overlay-panel overlay-left">
+                    <h1>Welcome Back!</h1>
+                    <p>To keep connected with us, please login with your personal info</p>
+                    <button class="ghost" id="signIn">Sign In</button>
+                </div>
+                <div class="overlay-panel overlay-right">
+                    <h1>Hello, Friend!</h1>
+                    <p>Enter your personal details and start your journey with us</p>
+                    <button class="ghost" id="signUp">Sign Up</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="verificationModal" class="modal">
+            <div class="modal-content">
+                <h2>Email Verification</h2>
+                <p>Please enter the verification code sent to your email:</p>
+                <form action="/verify_email" method="POST">
+                    <input type="hidden" name="email" id="verificationEmail" value="" />
+                    <input type="text" name="code" id="verificationCode" placeholder="Enter code" required />
+                    <input type="hidden" name="password" id="verificationPassword" value="" />
+                    <button type="submit" id="verifyButton">Verify</button>
+                </form>
+                <p id="verificationError" style="color: red; display: none;">Invalid code. Please try again.</p>
+            </div>
+        </div>
+
+        <div id="message-container"></div>
+    </div>
+
+    <footer>
+        
+    </footer>
+    <script src="/static/script.js">
+        document.addEventListener("DOMContentLoaded", function() {
+            const forgotPasswordLink = document.getElementById('forgot-password-link');
+        
+            if (forgotPasswordLink) {
+                forgotPasswordLink.addEventListener('click', function(e) {
+                    e.preventDefault(); // Prevent default link behavior
+                
+                    // Logic to display the forgot password form
+                    document.getElementById('forgot-password-form').style.display = 'block'; // Show the form
+                
+                    // Optionally, hide the login form
+                    document.getElementById('login-form').style.display = 'none';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

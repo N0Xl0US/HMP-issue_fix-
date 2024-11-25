@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+    }
+    nav {
+      margin: 20px;
+      text-align: center;
+    }
+    nav a {
+      margin: 0 15px;
+      text-decoration: none;
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    main {
+      margin: 20px;
+      text-align: center;
+    }
+    .profile-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #4CAF50;
+      color: white;
+      display: inline-block;
+      text-align: center;
+      line-height: 40px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    .welcome-message {
+      font-size: 1.5em;
+      color: #333;
+      margin-top: 20px;
+    }
+    .card {
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin: 20px;
+      padding: 20px;
+      text-align: center;
+      width: 250px;
+      display: inline-block;
+    }
+    .card h3 {
+      margin-bottom: 10px;
+    }
+    .card p {
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Welcome to Healthy Meal Planner!</h1>
+    <span class="welcome-message">Hello, <span id="userName">{{ name }}</span>!</span>
+    <span class="profile-icon" onclick="window.location.href = '/update-profile';">P</span>
+  </header>
+  
+  <nav>
+    <a href="#meal-plan">Meal Plan</a>
+    <a href="#track-meals">Track Meals</a>
+    <a href="#profile">Profile</a>
+    <a href="/logout">Logout</a>
+  </nav>
+  
+  <main>
+    <p>Here you can plan your meals, track your health, and more!</p>
+    
+    <!-- Display cards for features -->
+    <div class="card">
+      <h3>Meal Plan</h3>
+      <p>Plan your meals for the week</p>
+    </div>
+    
+    <div class="card">
+      <h3>Track Meals</h3>
+      <p>Keep track of what you eat</p>
+    </div>
+    
+    <div class="card">
+      <h3>Health Goals</h3>
+      <p>Set and track your health goals</p>
+    </div>
+  </main>
+
+  <script>
+    // Update username dynamically (This can be modified based on the logged-in user)
+    const userName = '{{ name }}'; // The name is passed from the backend to the template
+    document.getElementById('userName').textContent = userName;
+  </script>
+</body>
+</html>
