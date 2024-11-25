@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Healthy Meal Planner</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Login | NutriMater</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login_signup.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
@@ -95,7 +95,7 @@
     <footer>
         
     </footer>
-    <script src="/static/script.js">
+    <script src="{{ url_for('static', filename='js/login_signup.js') }}">
         document.addEventListener("DOMContentLoaded", function() {
             const forgotPasswordLink = document.getElementById('forgot-password-link');
         

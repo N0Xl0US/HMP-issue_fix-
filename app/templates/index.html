@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  <title>NutriMate | Your Personalized Meal Planner</title>
+</head>
+<body>
+  <!-- Header Section -->
+  <div class="header"> 
+    <div class="logo">
+        NutriMate
+    </div>
+    <ul class="links">
+      <li><a href="{{ url_for('home') }}">Home</a></li>
+      <li><a href="{{ url_for('about') }}">About</a></li>
+      <li><a href="{{ url_for('login_signup') }}">Login/Signup</a></li>
+    </ul> 
+  </div>
+  
+  <!-- Hero Section -->
+  <div class="top">
+    <div class="hero">
+      <h1>Eat Healthy, Live Happier</h1>
+      <div class="hero-secondary">Plan meals tailored to your health needs. Whether you're managing a chronic condition or striving for a balanced lifestyle, NutriMate makes it simple and effective.</div>
+      <button class="sign-up">Get Started</button>
+    </div>  
+    <div class="placeholder"></div>
+  </div>
+    
+  <!-- Information Section -->
+  <div class="info" id="about">
+    <h2>Why Choose NutriMate?</h2>
+    <div class="container">
+      <div class="info-box">
+        <img src="{{ url_for('static', filename='images/OIG4.jpeg') }}" alt="Custom Meal Plans">
+        <div class="text">Personalized meal plans designed to fit your health goals and dietary restrictions.</div>
+      </div>
+      <div class="info-box"> 
+        <img src="{{ url_for('static', filename='images/OIG2.1Q9.jpeg') }}" alt="Track Your Progress">
+        <div class="text">Track your nutritional intake and monitor your progress over time.</div>
+      </div>
+      <div class="info-box">
+        <img src="{{ url_for('static', filename='images/OIG3.0baLqd.jpeg') }}" alt="Expert Guidance">
+        <div class="text">Get expert advice and tips for a healthier lifestyle.</div>
+      </div>
+      <div class="info-box">
+        <img src="{{ url_for('static', filename='images/OIG2.jpeg') }}" alt="Easy to Use">
+        <div class="text">Simple and intuitive interface, making healthy eating accessible to everyone.</div>
+      </div>  
+    </div>
+  </div>
+    
+  <!-- Quote Section -->
+  <div class="bottom">
+    <div class="quote-box"> 
+      <div class="quote">
+        "NutriMate changed the way I think about food. Now, eating healthy feels effortless and enjoyable."
+      </div> 
+      <div class="source">
+        - Alex Johnson, NutriMate User
+      </div>
+    </div>  
+  </div>
+      
+  <!-- Call to Action Section -->
+  <div class="action">
+    <div class="box">
+      <div class="action-text">
+        <div class="text1">Ready to Transform Your Health?</div>
+        <div class="text2">Sign up today and take the first step toward a healthier, happier you!</div>
+      </div>  
+      <button id="sign-up2" class="sign-up2">Sign Up Now</button>
+    </div>
+  </div>
+  
+  <!-- Footer Section -->
+  <div class="footer">
+    <div class="copyright">
+      Copyright © NutriMate 2024. All rights reserved.
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+</html>
