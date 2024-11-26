@@ -1,221 +1,62 @@
-from flask import Flask, render_template, request, redirect, session, flash, jsonify
-import mysql.connector
-import os
+from flask import Flask, render_template, request, redirect, session, flash, jsonify, url_for
 from flask_bcrypt import Bcrypt
-import smtplib
+from flask_session import Session
+from config import Config
+import mysql.connector
 import random
 import time
-from logger import log_action
-from datetime import timedelta
+from datetime import datetime, timedelta
+import smtplib
 
 app = Flask(__name__)
-bcrypt = Bcrypt(app)
-app.secret_key = os.urandom(24)
-app.config['SESSION_COOKIE_SECURE'] = True
-app.permanent_session_lifetime = timedelta(hours=1)
+app.config.from_object(Config)
 
-# Temporary in-memory storage for verification codes
+bcrypt = Bcrypt(app)
+app.config["SESSION_FILE_DIR"] = "./flask_session_cache"
+Session(app)
+
 verification_codes = {}
 
+# Database connection
 db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="AutoSuggestion0",
-    database="healthy_meal_planner"
+    host=Config.DB_HOST,
+    user=Config.DB_USER,
+    password=Config.DB_PASSWORD,
+    database=Config.DB_NAME
 )
 cursor = db.cursor(dictionary=True)
 
 
-@app.route('/signup', methods=['POST'])
-def signup():
-    data = request.get_json()  # Get the data as JSON
-    name = data['name']
-    email = data['email']
-    password = bcrypt.generate_password_hash(data['password']).decode('utf-8')  # Hash the password
+# Helper functions
+def generate_otp():
+    return random.randint(100000, 999999)
 
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    if cursor.fetchone():
-        return jsonify({"success": False, "message": "Email already exists."})
 
-    verification_code = random.randint(100000, 999999)
-
+def send_email(subject, recipient, message_body):
     try:
-        sender_email = "hmp.help@gmail.com"
-        sender_password = "rscw eewr atra jzro"
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        message = f"Subject: Verify Your Email\n\nYour verification code is: {verification_code}"
-        server.sendmail(sender_email, email, message)
-        server.quit()
+        with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT) as server:
+            server.starttls()
+            server.login(Config.EMAIL_SENDER, Config.EMAIL_PASSWORD)
+            message = f"Subject: {subject}\n\n{message_body}"
+            server.sendmail(Config.EMAIL_SENDER, recipient, message)
+        return True
     except Exception as e:
-        return jsonify({"success": False, "message": "Failed to send verification email. Please try again later."})
-
-    # Store verification code temporarily for later verification
-    verification_codes[email] = {"code": verification_code, "timestamp": time.time()}
-
-    # Save user to DB (without verification yet)
-    cursor.execute("INSERT INTO users (full_name, email, password, email_verified) VALUES (%s, %s, %s, %s)",
-                   (name, email, password, False))
-    db.commit()
-
-    return jsonify({"success": True, "message": "Verification email sent."})
+        app.logger.error(f"Failed to send email: {e}")
+        return False
 
 
-@app.route('/verify-email', methods=['POST'])
-def verify_email():
-    data = request.get_json()
-    email = data.get('email')
-    verification_code = data.get('code')
+# Routes
 
-    if not email or not verification_code:
-        return jsonify({"success": False, "message": "Email and code are required."}), 400
-
-    # Check if the verification code matches the stored code for the email
-    stored_code_info = verification_codes.get(email)
-    if not stored_code_info or stored_code_info["code"] != int(verification_code):
-        return jsonify({"success": False, "message": "Invalid verification code."})
-
-    # Check if the code expired (e.g., expire after 10 minutes)
-    if time.time() - stored_code_info["timestamp"] > 600:  # 10 minutes
-        del verification_codes[email]  # Clear expired code
-        return jsonify({"success": False, "message": "Verification code expired."})
-
-    # Update the user's verification status
-    cursor.execute("UPDATE users SET email_verified = TRUE WHERE email = %s", (email,))
-    db.commit()
-
-    # Clear the verification code as it's no longer needed
-    del verification_codes[email]
-
-    return jsonify({"success": True, "message": "Email verified successfully. You can now log in."})
-
-
-@app.route('/login', methods=['POST'])
-def login():
-    email = request.form['email']
-    password = request.form['password']
-
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
-
-    if not user or not bcrypt.check_password_hash(user["password"], password):
-        flash("Invalid email or password.", "danger")
-        return redirect('/')
-
-    if not user["email_verified"]:
-        flash("Your email is not verified. Please check your email for the verification code.", "warning")
-        return redirect('/')
-
-    session['user_id'] = user['user_id']
-    session['name'] = user['full_name']
-
-    log_action(user_id=user['user_id'], action_type="LOGIN", description="User logged in.")
-
-    return redirect('/dashboard')
-
-
-@app.route('/dashboard')
-def dashboard():
-    if 'user_id' not in session:
-        flash("Please log in to access this page.", "danger")
-        return redirect('/')
-
-    # Retrieve user's name from session
-    user_name = session.get('name')
-
-    # Render the dashboard template and pass the user's name
-    return render_template('dashboard.html', name=user_name)
-
-
-@app.route('/logout')
-def logout():
-    if 'user_id' in session:
-        log_action(user_id=session['user_id'], action_type="LOGOUT", description="User logged out.")
-        session.clear()
-
-    flash("You have been logged out.", "success")
-    return redirect('/')
-
-
-@app.route('/send-otp', methods=['POST'])
-def send_otp():
-    data = request.get_json()
-    email = data.get('email')
-
-    # Check if the email exists in the database
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
-
-    if not user:
-        return jsonify({"success": False, "message": "Email not found."})
-
-    # Generate OTP and send via email
-    otp = random.randint(100000, 999999)
-    # Store OTP temporarily with a timestamp
-    verification_codes[email] = {"code": otp, "timestamp": time.time()}
-
-    # Send OTP via email
-    try:
-        sender_email = "hmp.help@gmail.com"
-        sender_password = "rscw eewr atra jzro"
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        message = f"Subject: Your OTP Code\n\nYour OTP code is: {otp}"
-        server.sendmail(sender_email, email, message)
-        server.quit()
-
-        return jsonify({"success": True, "message": "OTP sent to your email."})
-    except Exception as e:
-        return jsonify({"success": False, "message": "Failed to send OTP."})
-
-
-@app.route('/verify-otp', methods=['POST'])
-def verify_otp():
-    data = request.get_json()
-    email = data.get('email')
-    otp = data.get('otp')
-
-    # Check if OTP matches
-    stored_otp_info = verification_codes.get(email)
-    if not stored_otp_info or stored_otp_info["code"] != int(otp):
-        return jsonify({"success": False, "message": "Invalid OTP."})
-
-    # Check if the OTP expired (e.g., expire after 5 minutes)
-    if time.time() - stored_otp_info["timestamp"] > 300:  # 5 minutes
-        del verification_codes[email]  # Clear expired OTP
-        return jsonify({"success": False, "message": "OTP expired."})
-
-    # Clear OTP entry after successful verification
-    del verification_codes[email]
-
-    return jsonify({"success": True, "message": "OTP verified."})
-
-
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
-    data = request.get_json()
-    email = data.get('email')
-    new_password = data.get('newPassword')
-
-    # Hash the new password
-    hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
-
-    # Update the password in the database
-    cursor.execute("UPDATE users SET password = %s WHERE email = %s", (hashed_password, email))
-    db.commit()
-
-    # Clear the OTP entry
-    if email in verification_codes:
-        del verification_codes[email]
-
-    return jsonify({"success": True, "message": "Password reset successful."})
-
-
+# Home route (Landing page)
 @app.route('/')
 def home():
     return render_template('index.html')
+
+
+# About route (Information about the app or service)
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 
 @app.route('/login_signup')
@@ -223,24 +64,167 @@ def login_signup():
     return render_template('login_signup.html')
 
 
-@app.route('/about')
-def about():
-    return render_template('about.html')
+# Dashboard route (User profile and other data)
+@app.route('/dashboard')
+def dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for('login_signup'))  # Redirect to login if not logged in
+    return render_template('dashboard.html', user_name=session['name'])
 
 
+# Profile route (View and update user profile)
+@app.route('/profile', methods=['GET', 'POST'])
+def profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login_signup'))  # Redirect to login if not logged in
+
+    if request.method == 'POST':
+        # Update profile logic (e.g., change email or password)
+        new_name = request.form['name']
+        new_email = request.form['email']
+        new_password = request.form['password']
+
+        # Hash the new password if provided
+        if new_password:
+            new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+
+        cursor.execute("""
+            UPDATE users
+            SET full_name = %s, email = %s, password = %s
+            WHERE user_id = %s
+        """, (new_name, new_email, new_password, session['user_id']))
+        db.commit()
+
+        session['name'] = new_name  # Update session name
+
+        flash("Profile updated successfully!", "success")
+        return redirect(url_for('profile'))
+
+    # Get current user details
+    cursor.execute("SELECT full_name, email FROM users WHERE user_id = %s", (session['user_id'],))
+    user = cursor.fetchone()
+    return render_template('profile.html', user=user)
+
+
+# Signup route (Create a new account)
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.get_json()
+    name = data['name']
+    email = data['email']
+    password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    if cursor.fetchone():
+        return jsonify({"success": False, "message": "Email already exists."})
+
+    verification_code = generate_otp()
+    if send_email("Verify Your Email", email, f"Your verification code is: {verification_code}"):
+        verification_codes[email] = {
+            "code": verification_code,
+            "timestamp": time.time(),
+            "user_data": {"name": name, "email": email, "password": password}
+        }
+        return jsonify({"success": True, "message": "Verification email sent."})
+    return jsonify({"success": False, "message": "Failed to send verification email."})
+
+
+# Verify email route (Handle email verification)
+@app.route('/verify-email', methods=['POST'])
+def verify_email():
+    data = request.get_json()
+    email = data['email']
+    code = int(data['code'])
+
+    stored_code_info = verification_codes.get(email)
+    if not stored_code_info or stored_code_info["code"] != code or time.time() - stored_code_info["timestamp"] > 600:
+        return jsonify({"success": False, "message": "Invalid or expired verification code."})
+
+    user_data = stored_code_info["user_data"]
+    cursor.execute(
+        "INSERT INTO users (full_name, email, password, email_verified) VALUES (%s, %s, %s, TRUE)",
+        (user_data["name"], user_data["email"], user_data["password"])
+    )
+    db.commit()
+    del verification_codes[email]
+
+    return jsonify({"success": True, "message": "Email verified successfully."})
+
+
+# Login route (Authenticate users)
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data['email']
+    password = data['password']
+
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+
+    if not user or not bcrypt.check_password_hash(user["password"], password):
+        return jsonify({"success": False, "message": "Invalid email or password."})
+
+    if not user["email_verified"]:
+        return jsonify({"success": False, "message": "Please verify your email before logging in."})
+
+    session['user_id'] = user['user_id']
+    session['name'] = user['full_name']
+    return jsonify({"success": True, "message": "Login successful."})
+
+
+# Logout route (Clear session and log out the user)
+@app.route('/logout')
+def logout():
+    session.clear()
+    session.modified = True
+    response = redirect(url_for('home'))
+    response.set_cookie('session', '', expires=datetime(1970, 1, 1))
+    return response
+
+
+# Send OTP for password reset
+@app.route('/send-otp', methods=['POST'])
+def send_otp():
+    data = request.get_json()
+    email = data['email']
+
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    if not cursor.fetchone():
+        return jsonify({"success": False, "message": "Email not found."})
+
+    otp = generate_otp()
+    verification_codes[email] = {"code": otp, "timestamp": time.time()}
+
+    if send_email("Your OTP Code", email, f"Your OTP code is: {otp}"):
+        return jsonify({"success": True, "message": "OTP sent to your email."})
+    return jsonify({"success": False, "message": "Failed to send OTP email."})
+
+
+# Reset password route (Allow user to reset password using OTP)
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    email = data['email']
+    otp = int(data['otp'])
+    new_password = bcrypt.generate_password_hash(data['newPassword']).decode('utf-8')
+
+    stored_code_info = verification_codes.get(email)
+    if not stored_code_info or stored_code_info["code"] != otp or time.time() - stored_code_info["timestamp"] > 300:
+        return jsonify({"success": False, "message": "Invalid or expired OTP."})
+
+    cursor.execute("UPDATE users SET password = %s WHERE email = %s", (new_password, email))
+    db.commit()
+    del verification_codes[email]
+
+    return jsonify({"success": True, "message": "Password reset successful."})
+
+
+# Error handler for 404 (Page Not Found)
 @app.errorhandler(404)
 def page_not_found(e):
-    return render_template('404.html'), 404
+    logged_in = 'user_id' in session
+    return render_template('404.html', logged_in=logged_in), 404
 
-
-@app.errorhandler(422)
-def page_not_found(e):
-    return render_template('422.html'), 422
-
-
-@app.errorhandler(500)
-def internal_server_error(e):
-    return render_template('500.html'), 500
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)

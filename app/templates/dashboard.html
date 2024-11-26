@@ -1,110 +1,290 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard | NutriMate</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background-color: #4CAF50;
-      color: white;
-      padding: 10px 20px;
-      text-align: center;
-    }
-    nav {
-      margin: 20px;
-      text-align: center;
-    }
-    nav a {
-      margin: 0 15px;
-      text-decoration: none;
-      color: #4CAF50;
-      font-weight: bold;
-    }
-    main {
-      margin: 20px;
-      text-align: center;
-    }
-    .profile-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background-color: #4CAF50;
-      color: white;
-      display: inline-block;
-      text-align: center;
-      line-height: 40px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-left: 10px;
-    }
-    .welcome-message {
-      font-size: 1.5em;
-      color: #333;
-      margin-top: 20px;
-    }
-    .card {
-      background-color: white;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      margin: 20px;
-      padding: 20px;
-      text-align: center;
-      width: 250px;
-      display: inline-block;
-    }
-    .card h3 {
-      margin-bottom: 10px;
-    }
-    .card p {
-      color: #777;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthy Meal Planner Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #18181b;
+            color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        .dashboard {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: #27272a;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        .card h3 {
+            margin: 0 0 15px;
+            color: #9ca3af;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #3b82f6;
+            border-radius: 5px;
+        }
+        .progress-wrapper {
+            background-color: #3f3f46;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 20px;
+            margin-top: 10px;
+        }
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #1f2937;
+            padding: 10px 20px;
+            color: #f9fafb;
+        }
+
+        header .title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        header .actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        header .actions button {
+            background-color: #3b82f6;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        header .actions button:hover {
+            background-color: #2563eb;
+        }
+
+        header .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #9ca3af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        header .profile-icon img {
+            width: 100%;
+            border-radius: 50%;
+        }
+
+        footer {
+            background-color: #1f2937;
+            color: #9ca3af;
+            text-align: center;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        footer a {
+            color: #3b82f6;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>Welcome to Healthy Meal Planner!</h1>
-    <span class="welcome-message">Hello, <span id="userName">{{ name }}</span>!</span>
-    <span class="profile-icon" onclick="window.location.href = '/update-profile';">P</span>
-  </header>
-  
-  <nav>
-    <a href="#meal-plan">Meal Plan</a>
-    <a href="#track-meals">Track Meals</a>
-    <a href="#profile">Profile</a>
-    <a href="/logout">Logout</a>
-  </nav>
-  
-  <main>
-    <p>Here you can plan your meals, track your health, and more!</p>
-    
-    <!-- Display cards for features -->
-    <div class="card">
-      <h3>Meal Plan</h3>
-      <p>Plan your meals for the week</p>
-    </div>
-    
-    <div class="card">
-      <h3>Track Meals</h3>
-      <p>Keep track of what you eat</p>
-    </div>
-    
-    <div class="card">
-      <h3>Health Goals</h3>
-      <p>Set and track your health goals</p>
-    </div>
-  </main>
+    <header style="padding: 20px; text-align: center; background-color: #1f2937;">
+        <div class="title">Healthy Meal Planner</div>
+        <div class="actions">
+            <button id="darkModeToggle">Toggle Dark Mode</button>
+            <div class="profile-icon" onclick="window.location.href='/profile'">
+                <img src="https://via.placeholder.com/40" alt="Profile">
+            </div>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </header>
+    <div class="dashboard">
+        <!-- Calories Section -->
+        <div class="card">
+            <h3>Calories Intake</h3>
+            <div class="chart-container">
+                <canvas id="caloriesChart"></canvas>
+            </div>
+            <p><strong>Consumed:</strong> <span id="caloriesConsumed">1623 kcal</span></p>
+            <p><strong>Remaining:</strong> <span id="caloriesRemaining">377 kcal</span></p>
+        </div>
 
-  <script>
-    // Update username dynamically (This can be modified based on the logged-in user)
-    const userName = '{{ name }}'; // The name is passed from the backend to the template
-    document.getElementById('userName').textContent = userName;
-  </script>
+        <!-- Meals Section -->
+        <div class="card">
+            <h3>Meals Breakdown</h3>
+            <div class="chart-container">
+                <canvas id="mealsChart"></canvas>
+            </div>
+            <p><strong>Breakfast:</strong> 450 kcal</p>
+            <p><strong>Lunch:</strong> 700 kcal</p>
+            <p><strong>Dinner:</strong> 500 kcal</p>
+        </div>
+
+        <!-- Sugar Levels -->
+        <div class="card">
+            <h3>Sugar Levels</h3>
+            <div class="chart-container">
+                <canvas id="sugarChart"></canvas>
+            </div>
+            <p><strong>Current:</strong> 110 mg/dL</p>
+            <p><strong>Target:</strong> Below 140 mg/dL</p>
+        </div>
+
+        <!-- Macronutrient Breakdown -->
+        <div class="card">
+            <h3>Macronutrient Breakdown</h3>
+            <div class="chart-container">
+                <canvas id="macronutrientChart"></canvas>
+            </div>
+            <p><strong>Carbs:</strong> 45%</p>
+            <p><strong>Protein:</strong> 35%</p>
+            <p><strong>Fats:</strong> 20%</p>
+        </div>
+
+        <!-- Sleep Tracker -->
+        <div class="card">
+            <h3>Sleep Tracker</h3>
+            <div class="progress-wrapper">
+                <div class="progress-bar" style="width: 75%;"></div>
+            </div>
+            <p><strong>Hours Slept:</strong> 6/8 hours</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Healthy Meal Planner | <a href="help.html">Help</a> | <a href="contact.html">Contact</a></p>
+    </footer>
+
+    <script>
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        darkModeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            document.body.style.backgroundColor = isDark ? '#18181b' : '#ffffff';
+            document.body.style.color = isDark ? '#f9fafb' : '#ffffff';
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.style.backgroundColor = isDark ? '#27272a' : '#ffffff'; // Adjust to preferred colors
+                card.style.color = isDark ? '#f9fafb' : '#000000'; // Optional for text color
+            });
+        });
+
+        // Logout Button
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            window.location.href = "/login_signup";
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const darkMode = {
+                backgroundColor: '#18181b',
+                gridColor: '#27272a',
+                textColor: '#9ca3af'
+            };
+
+            // Calories Doughnut Chart
+            new Chart(document.getElementById('caloriesChart'), {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [1623, 377],
+                        backgroundColor: ['#3b82f6', '#27272a'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '80%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Meals Doughnut Chart
+            new Chart(document.getElementById('mealsChart'), {
+                type: 'pie',
+                data: {
+                    labels: ['Breakfast', 'Lunch', 'Dinner'],
+                    datasets: [{
+                        data: [450, 700, 500],
+                        backgroundColor: ['#3b82f6', '#a855f7', '#f59e0b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: darkMode.textColor } } }
+                }
+            });
+
+            // Sugar Levels Line Chart
+            new Chart(document.getElementById('sugarChart'), {
+                type: 'line',
+                data: {
+                    labels: Array(7).fill('').map((_, i) => `Day ${i + 1}`),
+                    datasets: [{
+                        data: [100, 105, 110, 115, 108, 102, 110],
+                        borderColor: '#f43f5e',
+                        tension: 0.4,
+                        borderWidth: 2,
+                        fill: { target: 'origin', above: 'rgba(244, 63, 94, 0.1)' }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { display: false }, x: { display: false } }
+                }
+            });
+
+            // Macronutrients Pie Chart
+            new Chart(document.getElementById('macronutrientChart'), {
+                type: 'pie',
+                data: {
+                    labels: ['Carbs', 'Protein', 'Fats'],
+                    datasets: [{
+                        data: [45, 35, 20],
+                        backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: darkMode.textColor } } }
+                }
+            });
+        });
+    </script>
 </body>
 </html>

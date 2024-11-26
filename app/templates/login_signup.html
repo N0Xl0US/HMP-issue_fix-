@@ -8,6 +8,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
+    {% with messages = get_flashed_messages(with_categories=True) %}
+      {% if messages %}
+        <ul class="flash-messages">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
     <div class="container" id="container">
         <div class="form-container sign-up-container">
             <form action="/signup" method="POST">
@@ -40,11 +50,13 @@
         </div>
 
         <div class="form-container forgot-password-container" style="display:none;">
-            <form id="forgot-password-form">
-                <h1>Forgot Password</h1>
-                <input type="email" id="forgot-email" placeholder="Enter your email" required />
-                <button type="submit">Submit</button>
-            </form>
+            <div id="forgot-password-form" class="forgot-password-container">
+                <form>
+                    <input type="email" id="forgot-email" placeholder="Enter your email" required />
+                    <button type="submit">Send OTP</button>
+                </form>
+                <a href="#" id="back-to-sign-in-link">Back to Sign In</a>
+            </div>
         
             <form id="otp-form" style="display: none;">
                 <h1>Verify OTP</h1>
@@ -79,7 +91,7 @@
             <div class="modal-content">
                 <h2>Email Verification</h2>
                 <p>Please enter the verification code sent to your email:</p>
-                <form action="/verify_email" method="POST">
+                <form action="/verify-email" method="POST">
                     <input type="hidden" name="email" id="verificationEmail" value="" />
                     <input type="text" name="code" id="verificationCode" placeholder="Enter code" required />
                     <input type="hidden" name="password" id="verificationPassword" value="" />
@@ -95,22 +107,6 @@
     <footer>
         
     </footer>
-    <script src="{{ url_for('static', filename='js/login_signup.js') }}">
-        document.addEventListener("DOMContentLoaded", function() {
-            const forgotPasswordLink = document.getElementById('forgot-password-link');
-        
-            if (forgotPasswordLink) {
-                forgotPasswordLink.addEventListener('click', function(e) {
-                    e.preventDefault(); // Prevent default link behavior
-                
-                    // Logic to display the forgot password form
-                    document.getElementById('forgot-password-form').style.display = 'block'; // Show the form
-                
-                    // Optionally, hide the login form
-                    document.getElementById('login-form').style.display = 'none';
-                });
-            }
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/login_signup.js') }}"></script>
 </body>
 </html>

@@ -19,6 +19,15 @@
   </div>
 
   <h1>Oops! Something went wrong!</h1>
-  <div class="btn">Return to Home</div>
+  <div class="btn" id="return-home">Return to Home</div>
+
+  <script>
+    const loggedIn = {{ logged_in | tojson | safe }};
+    
+    document.getElementById('return-home').addEventListener('click', function () {
+      const redirectUrl = loggedIn ? "{{ url_for('dashboard') }}" : "{{ url_for('home') }}";
+      window.location.href = redirectUrl;
+    });
+  </script>
 </body>
 </html>

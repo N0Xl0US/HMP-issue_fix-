@@ -1,12 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
 
-body {
-  font-family: Roboto, sans-serif;
-  margin: 0;
-  padding: 0;
-  background-color: #f4f4f9;
+/* Reset box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
+body {
+  font-family: 'Roboto', sans-serif;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(to right, #283c86, #45a247); /* Gradient background */
+  color: #fff;
+  height: 100vh;
+  display: flex;
+  flex-direction: column; /* To keep footer at bottom */
+  justify-content: space-between;
+  overflow-x: hidden; /* Prevent horizontal overflow */
+}
+
+/* Header, Top, and Footer */
 .header, .top, .footer {
   background-color: #1f2937;
 }
@@ -109,6 +123,7 @@ h2 {
   justify-content: center;
   flex-wrap: wrap;
   gap: 40px;
+  width: 100%; /* Ensure full width */
 }
 
 .info-box {
@@ -123,10 +138,11 @@ img {
 }
 
 .text {
-    text-align: center;
-    font-weight: 100;  
+  text-align: center;
+  font-weight: 100;
 }
 
+/* Button styling */
 button {
   background-color: #45a247;
   color: white;
@@ -139,10 +155,11 @@ button {
 }
 
 button:hover {
-  background-color: #45a247;
+  background-color: #333;
   transform: scale(1.05);
 }
 
+/* Placeholder box */
 .placeholder {
   background-color: #6d747d;
   display: flex;
@@ -154,8 +171,8 @@ button:hover {
 }
 
 #header-img {
-    width: 415px;
-    height: 175px;
+  width: 415px;
+  height: 175px;
 }
 
 .bottom {
@@ -163,6 +180,7 @@ button:hover {
   padding: 50px;
   display: flex;
   justify-content: center;
+  width: 100%; /* Ensure full width */
 }
 
 .quote-box {
@@ -191,20 +209,21 @@ button:hover {
 }
 
 .text1 {
-    font-weight: bold;
-    font-size: 18px;
-    color: white;
+  font-weight: bold;
+  font-size: 18px;
+  color: white;
 }
 
 .text2 {
-    color: white;
+  color: white;
 }
 
+/* Form Styling */
 .sign-up2 {
-    border-style: solid;
-    border-width: 2px;
-    border-color: white;
-  }
+  border-style: solid;
+  border-width: 2px;
+  border-color: white;
+}
 
 .box {
   background-color: #45a247;
@@ -216,6 +235,7 @@ button:hover {
   animation: slideUp 1.5s ease-out;
 }
 
+/* Footer Styling */
 .footer {
   display: flex;
   justify-content: center;
@@ -223,8 +243,11 @@ button:hover {
   background-color: #1f2937;
   color: #e5e7eb;
   font-size: 14px;
+  position: relative;
+  width: 100%; /* Ensure footer spans the full width */
 }
 
+/* Keyframes */
 @keyframes fadeIn {
   from {
     opacity: 0;

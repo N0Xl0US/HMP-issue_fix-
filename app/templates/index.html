@@ -2,85 +2,99 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="description" content="NutriMate is a personalized meal planner to help you live a healthier life, tailored to your dietary restrictions and health goals.">
+  <meta name="keywords" content="meal planner, personalized meal plans, healthy eating, chronic conditions, diet, wellness">
   <title>NutriMate | Your Personalized Meal Planner</title>
+  <!-- Open Graph Meta Tags for social sharing -->
+  <meta property="og:title" content="NutriMate | Your Personalized Meal Planner">
+  <meta property="og:description" content="NutriMate makes healthy eating easy by providing personalized meal plans tailored to your health needs.">
+  <meta property="og:image" content="{{ url_for('static', filename='images/logo.png') }}">
+  <meta property="og:url" content="{{ url_for('home') }}">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
 </head>
 <body>
   <!-- Header Section -->
-  <div class="header"> 
-    <div class="logo">
-        NutriMate
+  <header>
+    <div class="header"> 
+      <div class="logo">
+        <a href="{{ url_for('home') }}" aria-label="Go to homepage">NutriMate</a>
+      </div>
+      <nav>
+        <ul class="links">
+          <li><a href="{{ url_for('home') }}" aria-label="Go to homepage">Home</a></li>
+          <li><a href="{{ url_for('about') }}" aria-label="Learn more about NutriMate">About</a></li>
+          <li><a href="{{ url_for('login_signup') }}" aria-label="Go to login/signup page">Login/Signup</a></li>
+        </ul> 
+      </nav>
     </div>
-    <ul class="links">
-      <li><a href="{{ url_for('home') }}">Home</a></li>
-      <li><a href="{{ url_for('about') }}">About</a></li>
-      <li><a href="{{ url_for('login_signup') }}">Login/Signup</a></li>
-    </ul> 
-  </div>
-  
+  </header>
+
   <!-- Hero Section -->
-  <div class="top">
+  <section class="top" aria-labelledby="hero-section">
     <div class="hero">
-      <h1>Eat Healthy, Live Happier</h1>
-      <div class="hero-secondary">Plan meals tailored to your health needs. Whether you're managing a chronic condition or striving for a balanced lifestyle, NutriMate makes it simple and effective.</div>
-      <button class="sign-up">Get Started</button>
+      <h1 id="hero-title">Eat Healthy, Live Happier</h1>
+      <p class="hero-secondary">Plan meals tailored to your health needs. Whether you're managing a chronic condition or striving for a balanced lifestyle, NutriMate makes it simple and effective.</p>
+      <button class="sign-up" aria-label="Get started with NutriMate">Get Started</button>
     </div>  
-    <div class="placeholder"></div>
-  </div>
-    
+    <div class="placeholder" role="img" aria-label="Placeholder image for illustration"></div>
+  </section>
+
   <!-- Information Section -->
-  <div class="info" id="about">
-    <h2>Why Choose NutriMate?</h2>
+  <section class="info" id="about" aria-labelledby="about-section">
+    <h2 id="about-title">Why Choose NutriMate?</h2>
     <div class="container">
       <div class="info-box">
         <img src="{{ url_for('static', filename='images/OIG4.jpeg') }}" alt="Custom Meal Plans">
-        <div class="text">Personalized meal plans designed to fit your health goals and dietary restrictions.</div>
+        <p class="text">Personalized meal plans designed to fit your health goals and dietary restrictions.</p>
       </div>
       <div class="info-box"> 
         <img src="{{ url_for('static', filename='images/OIG2.1Q9.jpeg') }}" alt="Track Your Progress">
-        <div class="text">Track your nutritional intake and monitor your progress over time.</div>
+        <p class="text">Track your nutritional intake and monitor your progress over time.</p>
       </div>
       <div class="info-box">
         <img src="{{ url_for('static', filename='images/OIG3.0baLqd.jpeg') }}" alt="Expert Guidance">
-        <div class="text">Get expert advice and tips for a healthier lifestyle.</div>
+        <p class="text">Get expert advice and tips for a healthier lifestyle.</p>
       </div>
       <div class="info-box">
         <img src="{{ url_for('static', filename='images/OIG2.jpeg') }}" alt="Easy to Use">
-        <div class="text">Simple and intuitive interface, making healthy eating accessible to everyone.</div>
+        <p class="text">Simple and intuitive interface, making healthy eating accessible to everyone.</p>
       </div>  
     </div>
-  </div>
-    
+  </section>
+
   <!-- Quote Section -->
-  <div class="bottom">
+  <section class="bottom">
     <div class="quote-box"> 
-      <div class="quote">
+      <blockquote class="quote">
         "NutriMate changed the way I think about food. Now, eating healthy feels effortless and enjoyable."
-      </div> 
-      <div class="source">
+      </blockquote>
+      <footer class="source">
         - Alex Johnson, NutriMate User
-      </div>
+      </footer>
     </div>  
-  </div>
-      
+  </section>
+
   <!-- Call to Action Section -->
-  <div class="action">
+  <section class="action">
     <div class="box">
       <div class="action-text">
-        <div class="text1">Ready to Transform Your Health?</div>
-        <div class="text2">Sign up today and take the first step toward a healthier, happier you!</div>
+        <p class="text1">Ready to Transform Your Health?</p>
+        <p class="text2">Sign up today and take the first step toward a healthier, happier you!</p>
       </div>  
-      <button id="sign-up2" class="sign-up2">Sign Up Now</button>
+      <button id="sign-up2" class="sign-up2" aria-label="Sign up now to start planning your meals">Sign Up Now</button>
     </div>
-  </div>
-  
+  </section>
+
   <!-- Footer Section -->
-  <div class="footer">
+  <footer class="footer">
     <div class="copyright">
       Copyright © NutriMate 2024. All rights reserved.
     </div>
-  </div>
+  </footer>
 
   <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
