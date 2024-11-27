@@ -3,24 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | NutriMater</title>
+    <title>NutriMate | Login/Signup</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login_signup.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-    {% with messages = get_flashed_messages(with_categories=True) %}
-      {% if messages %}
-        <ul class="flash-messages">
-          {% for category, message in messages %}
-            <li class="{{ category }}">{{ message }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
-
     <div class="container" id="container">
         <div class="form-container sign-up-container">
-            <form action="/signup" method="POST">
+            <form action="/signup" method="POST" id="signUpForm">
                 <h1>Create Account</h1>
                 <div class="social-container">
                     <a href="#" class="social"><i class="fab fa-facebook-f"></i></a>
@@ -30,12 +20,13 @@
                 <input type="text" name="name" placeholder="Name" required />
                 <input type="email" name="email" placeholder="Email" required />
                 <input type="password" name="password" placeholder="Password" required />
+                <div id="signUpMessage" class="message"></div>
                 <button type="submit">Sign Up</button>
             </form>
         </div>
 
         <div class="form-container sign-in-container">
-            <form action="/login" method="POST">
+            <form action="/login" method="POST" id="signInForm">
                 <h1>Sign in</h1>
                 <div class="social-container">
                     <a href="#" class="social"><i class="fab fa-facebook-f"></i></a>
@@ -44,6 +35,7 @@
                 <span>or use your account</span>
                 <input type="email" name="email" placeholder="Email" required />
                 <input type="password" name="password" placeholder="Password" required />
+                <div id="signInMessage" class="message"></div>
                 <a href="#" id="forgot-password-link">Forgot your password?</a>
                 <button type="submit">Sign In</button>
             </form>
@@ -100,8 +92,6 @@
                 <p id="verificationError" style="color: red; display: none;">Invalid code. Please try again.</p>
             </div>
         </div>
-
-        <div id="message-container"></div>
     </div>
 
     <footer>

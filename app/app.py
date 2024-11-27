@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, render_template, request, redirect, session, flash, jsonify, url_for
 from flask_bcrypt import Bcrypt
 from flask_session import Session
@@ -7,6 +9,7 @@ import random
 import time
 from datetime import datetime, timedelta
 import smtplib
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -72,36 +75,57 @@ def dashboard():
     return render_template('dashboard.html', user_name=session['name'])
 
 
-# Profile route (View and update user profile)
+UPLOAD_FOLDER = 'static/uploads/profile_pictures'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+
+# Helper function to check allowed file extensions
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/profile', methods=['GET', 'POST'])
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
     if 'user_id' not in session:
-        return redirect(url_for('login_signup'))  # Redirect to login if not logged in
+        return redirect(url_for('login_signup'))
 
     if request.method == 'POST':
-        # Update profile logic (e.g., change email or password)
+        # Update other fields
         new_name = request.form['name']
         new_email = request.form['email']
         new_password = request.form['password']
+        profile_picture = request.files.get('profile_picture')
 
         # Hash the new password if provided
         if new_password:
             new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
+        # Save profile picture if uploaded
+        profile_picture_path = session.get('profile_picture')  # Default to existing picture
+        if profile_picture:
+            filename = f"user_{session['user_id']}_{profile_picture.filename}"
+            profile_picture_path = f"static/uploads/profile_pictures/{filename}"
+            profile_picture.save(profile_picture_path)
+
+        # Update database
         cursor.execute("""
             UPDATE users
-            SET full_name = %s, email = %s, password = %s
+            SET full_name = %s, email = %s, password = %s, profile_picture = %s
             WHERE user_id = %s
-        """, (new_name, new_email, new_password, session['user_id']))
+        """, (new_name, new_email, new_password, profile_picture_path, session['user_id']))
         db.commit()
 
-        session['name'] = new_name  # Update session name
+        # Update session
+        session['name'] = new_name
+        session['profile_picture'] = profile_picture_path
 
         flash("Profile updated successfully!", "success")
         return redirect(url_for('profile'))
 
     # Get current user details
-    cursor.execute("SELECT full_name, email FROM users WHERE user_id = %s", (session['user_id'],))
+    cursor.execute("SELECT full_name, email, profile_picture FROM users WHERE user_id = %s", (session['user_id'],))
     user = cursor.fetchone()
     return render_template('profile.html', user=user)
 
@@ -169,17 +193,15 @@ def login():
 
     session['user_id'] = user['user_id']
     session['name'] = user['full_name']
+    session['profile_picture'] = user['profile_picture'] or url_for('static', filename='images/default_profile.jpg')
     return jsonify({"success": True, "message": "Login successful."})
 
 
 # Logout route (Clear session and log out the user)
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
-    session.clear()
-    session.modified = True
-    response = redirect(url_for('home'))
-    response.set_cookie('session', '', expires=datetime(1970, 1, 1))
-    return response
+    session.clear()  # Clears the session
+    return jsonify({"success": True, "message": "Logged out successfully."})
 
 
 # Send OTP for password reset

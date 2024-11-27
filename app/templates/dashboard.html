@@ -3,32 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Healthy Meal Planner Dashboard</title>
+    <title>NutriMate - Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* General Styles */
+        :root {
+            --bg-color: #18181b;
+            --text-color: #f9fafb;
+            --card-bg: #27272a;
+            --primary-color: #3b82f6;
+            --secondary-color: #9ca3af;
+        }
+
         body {
             font-family: Arial, sans-serif;
-            background-color: #18181b;
-            color: #f9fafb;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
             padding: 0;
         }
+        .dark-mode {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --card-bg: #f3f4f6;
+        }
+
         .dashboard {
             padding: 20px;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
         }
+
         .card {
-            background-color: #27272a;
+            background-color: var(--card-bg);
             border-radius: 10px;
             padding: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3);
         }
         .card h3 {
             margin: 0 0 15px;
-            color: #9ca3af;
+            color: white;
         }
         .progress-bar {
             height: 20px;
@@ -45,6 +65,19 @@
         .chart-container {
             position: relative;
             height: 250px;
+        }
+        button {
+            background-color: var(--primary-color);
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
         }
 
         header {
@@ -81,22 +114,6 @@
             background-color: #2563eb;
         }
 
-        header .profile-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #9ca3af;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-
-        header .profile-icon img {
-            width: 100%;
-            border-radius: 50%;
-        }
-
         footer {
             background-color: #1f2937;
             color: #9ca3af;
@@ -114,15 +131,50 @@
         footer a:hover {
             text-decoration: underline;
         }
+
+        @media (max-width: 768px) {
+            header, footer {
+                text-align: center;
+                flex-direction: column;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .profile-pic img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ddd;
+            cursor: pointer;
+        }
+
+        .profile-pic label {
+            display: block;
+            margin-top: 10px;
+            cursor: pointer;
+            color: #4CAF50;
+            text-decoration: underline;
+        }
+
+        .dashboard-profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
     </style>
 </head>
 <body>
     <header style="padding: 20px; text-align: center; background-color: #1f2937;">
-        <div class="title">Healthy Meal Planner</div>
+        <div class="title">NutriMate</div>
         <div class="actions">
             <button id="darkModeToggle">Toggle Dark Mode</button>
-            <div class="profile-icon" onclick="window.location.href='/profile'">
-                <img src="https://via.placeholder.com/40" alt="Profile">
+            <div class="profile-pic" onclick="window.location.href='/profile'">
+                <img src="{{ session['profile_picture'] or url_for('static', filename='images/default_profile.jpg') }}" alt="Profile picture" class="dashboard-profile-pic">
             </div>
             <button id="logoutBtn">Logout</button>
         </div>
@@ -181,27 +233,59 @@
     </div>
 
     <footer>
-        <p>&copy; 2024 Healthy Meal Planner | <a href="help.html">Help</a> | <a href="contact.html">Contact</a></p>
+        <p>&copy; 2024 NutriMate | 
+            <a href="/help">Help</a> | 
+            <a href="/contact">Contact</a>
+        </p>
+        <div>
+            <a href="#"><img src="static/icons/facebook.svg" alt="Facebook"></a>
+            <a href="#"><img src="static/icons/twitter.svg" alt="Twitter"></a>
+            <a href="#"><img src="static/icons/linkedin.svg" alt="LinkedIn"></a>
+        </div>
     </footer>
 
     <script>
-        const darkModeToggle = document.getElementById('darkModeToggle');
-        darkModeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark');
-            const isDark = document.body.classList.contains('dark');
-            document.body.style.backgroundColor = isDark ? '#18181b' : '#ffffff';
-            document.body.style.color = isDark ? '#f9fafb' : '#ffffff';
-            const cards = document.querySelectorAll('.card');
-            cards.forEach(card => {
-                card.style.backgroundColor = isDark ? '#27272a' : '#ffffff'; // Adjust to preferred colors
-                card.style.color = isDark ? '#f9fafb' : '#000000'; // Optional for text color
+        document.addEventListener('DOMContentLoaded', () => {
+            const darkModeToggle = document.getElementById('darkModeToggle');
+
+            const applyDarkMode = (isDark) => {
+                if (isDark) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+            };
+
+            const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+            applyDarkMode(savedDarkMode);
+
+            darkModeToggle.addEventListener('click', () => {
+                const isDark = document.body.classList.toggle('dark-mode');
+                localStorage.setItem('darkMode', isDark);
             });
         });
 
         // Logout Button
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            window.location.href = "/login_signup";
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try {
+        // Send a request to the backend to clear the session
+        const response = await fetch('/logout', {
+            method: 'POST', // Assuming you use a POST request for logout
+            credentials: 'include', // Ensure cookies/session are sent
         });
+
+        if (response.ok) {
+            // Redirect to login/signup page after successful logout
+            window.location.href = "/login_signup";
+        } else {
+            console.error('Logout failed:', await response.text());
+            alert('Failed to log out. Please try again.');
+        }
+    } catch (error) {
+        console.error('Error during logout:', error);
+        alert('An unexpected error occurred.');
+    }
+});
 
         document.addEventListener('DOMContentLoaded', () => {
             const darkMode = {

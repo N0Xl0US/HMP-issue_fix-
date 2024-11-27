@@ -9,12 +9,24 @@ document.addEventListener('DOMContentLoaded', () => {
         signInButton.addEventListener('click', () => container.classList.remove('right-panel-active'));
     }
 
+    // Helper function to show messages
+    function showMessage(target, message, type = "error") {
+        const messageDiv = document.getElementById(target);
+        if (messageDiv) {
+            messageDiv.style.display = "block";
+            messageDiv.textContent = message;
+            messageDiv.className = `message ${type}`; // Add class for styling (success/error)
+        }
+    }
+
     // Handle signup
     const signUpForm = document.querySelector("form[action='/signup']");
     if (signUpForm) {
         signUpForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             const { name, email, password } = Object.fromEntries(new FormData(e.target));
+            showMessage("signUpMessage", ""); // Clear previous messages
+
             try {
                 const response = await fetch('/signup', {
                     method: 'POST',
@@ -22,27 +34,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ name, email, password }),
                 });
                 const result = await response.json();
-                if (response.ok) {
-                    // If signup is successful, show email verification modal and redirect
+                if (response.ok && result.success) {
                     document.getElementById("verificationModal").style.display = "flex";
                     document.getElementById("verificationEmail").value = email;
-
-                    // Redirect to dashboard after successful signup (you may choose to redirect here)
-                    window.location.href = "/dashboard";  // Uncomment this if you want to auto-redirect after signup
+                    showMessage("signUpMessage", "Signup successful! Please verify your email.", "success");
                 } else {
-                    alert(result.message || "Signup failed.");
+                    showMessage("signUpMessage", result.message || "Signup failed.", "error");
                 }
             } catch (error) {
                 console.error("Error during signup:", error);
+                showMessage("signUpMessage", "An unexpected error occurred. Please try again.", "error");
             }
         });
     }
 
+    // Handle login
     const signInForm = document.querySelector("form[action='/login']");
     if (signInForm) {
         signInForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             const { email, password } = Object.fromEntries(new FormData(e.target));
+            showMessage("signInMessage", ""); // Clear previous messages
+
             try {
                 const response = await fetch('/login', {
                     method: 'POST',
@@ -50,14 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ email, password }),
                 });
                 const result = await response.json();
-                if (response.ok) {
-                    // Redirect to dashboard on successful login
-                    window.location.href = "/dashboard";  // Redirect to dashboard after successful login
+                if (response.ok && result.success) {
+                    window.location.href = "/dashboard";
                 } else {
-                    alert(result.message || "Login failed.");
+                    showMessage("signInMessage", result.message || "Invalid email or password.", "error");
                 }
             } catch (error) {
                 console.error("Error during login:", error);
+                showMessage("signInMessage", "An unexpected error occurred. Please try again.", "error");
             }
         });
     }
@@ -66,9 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const verifyButton = document.getElementById("verifyButton");
     if (verifyButton) {
         verifyButton.addEventListener("click", async (e) => {
-            e.preventDefault(); // Prevent form from submitting
+            e.preventDefault();
             const email = document.getElementById("verificationEmail").value;
             const code = document.getElementById("verificationCode").value;
+            showMessage("verificationError", ""); // Clear previous messages
+
             try {
                 const response = await fetch("/verify-email", {
                     method: "POST",
@@ -77,13 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await response.json();
                 if (data.success) {
-                    window.location.href = "/dashboard";  // Redirect to dashboard after successful verification
+                    window.location.href = "/dashboard";
                 } else {
-                    document.getElementById("verificationError").style.display = "block";  // Show error if code is invalid
+                    showMessage("verificationError", data.message || "Invalid code. Please try again.", "error");
                 }
             } catch (error) {
                 console.error('Error verifying code:', error);
-                alert('An error occurred. Please try again.');
+                showMessage("verificationError", "An unexpected error occurred. Please try again.", "error");
             }
         });
     }
@@ -94,6 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         forgotPasswordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('forgot-email').value;
+            showMessage("forgotPasswordMessage", ""); // Clear previous messages
+
             try {
                 const response = await fetch('/send-otp', {
                     method: 'POST',
@@ -102,55 +119,80 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await response.json();
                 if (data.success) {
-                    alert('OTP sent to your email!');
+                    showMessage("forgotPasswordMessage", "OTP sent to your email!", "success");
                     showOtpField();
                 } else {
-                    alert(data.message || 'Error sending OTP');
+                    showMessage("forgotPasswordMessage", data.message || "Error sending OTP.", "error");
                 }
             } catch (error) {
                 console.error('Error sending OTP:', error);
-                alert('An error occurred. Please try again.');
+                showMessage("forgotPasswordMessage", "An unexpected error occurred. Please try again.", "error");
             }
         });
     }
-    
-    // Helper Functions
-    function showOtpField() {
-        const otpField = document.createElement('input');
-        otpField.type = 'text';
-        otpField.placeholder = 'Enter OTP';
-        otpField.id = 'otp';
-        document.getElementById('forgot-password-form').appendChild(otpField);
-        const verifyButton = document.createElement('button');
-        verifyButton.type = 'button';
-        verifyButton.textContent = 'Verify OTP';
-        document.getElementById('forgot-password-form').appendChild(verifyButton);
-    }
-});
 
-document.addEventListener("DOMContentLoaded", function() {
+    // Helper Function to Show OTP Field
+    function showOtpField() {
+        const otpField = document.getElementById('otp');
+        if (!otpField) {
+            const otpInput = document.createElement('input');
+            otpInput.type = 'text';
+            otpInput.placeholder = 'Enter OTP';
+            otpInput.id = 'otp';
+            document.getElementById('forgot-password-form').appendChild(otpInput);
+
+            const verifyButton = document.createElement('button');
+            verifyButton.type = 'button';
+            verifyButton.textContent = 'Verify OTP';
+            verifyButton.id = 'verify-otp-button';
+            verifyButton.addEventListener('click', verifyOtp);
+            document.getElementById('forgot-password-form').appendChild(verifyButton);
+        }
+    }
+
+    // Verify OTP
+    async function verifyOtp() {
+        const email = document.getElementById('forgot-email').value;
+        const otp = document.getElementById('otp').value;
+        showMessage("forgotPasswordMessage", ""); // Clear previous messages
+
+        try {
+            const response = await fetch('/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, otp }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("forgotPasswordMessage", "OTP verified! You can reset your password.", "success");
+                // Show password reset fields here
+            } else {
+                showMessage("forgotPasswordMessage", data.message || "Invalid OTP.", "error");
+            }
+        } catch (error) {
+            console.error('Error verifying OTP:', error);
+            showMessage("forgotPasswordMessage", "An unexpected error occurred. Please try again.", "error");
+        }
+    }
+
+    // Toggle between Sign In and Forgot Password
     const forgotPasswordLink = document.getElementById('forgot-password-link');
-    const container = document.getElementById('container');
     const signInContainer = document.querySelector('.sign-in-container');
-    const forgotPasswordForm = document.getElementById('forgot-password-form');
 
     if (forgotPasswordLink) {
-        forgotPasswordLink.addEventListener('click', function(e) {
-            e.preventDefault(); // Prevent default link behavior
-
-            // Hide sign-in container and show forgot-password form
+        forgotPasswordLink.addEventListener('click', function (e) {
+            e.preventDefault();
             signInContainer.style.display = 'none';
-            forgotPasswordForm.style.display = 'block'; // Show forgot password form
+            forgotPasswordForm.style.display = 'block';
         });
     }
 
     const backToSignInLink = document.getElementById('back-to-sign-in-link');
     if (backToSignInLink) {
-        backToSignInLink.addEventListener('click', function(e) {
+        backToSignInLink.addEventListener('click', function (e) {
             e.preventDefault();
-            // Show sign-in container again and hide forgot-password form
             signInContainer.style.display = 'block';
-            forgotPasswordForm.style.display = 'none'; // Hide forgot password form
+            forgotPasswordForm.style.display = 'none';
         });
     }
 });
