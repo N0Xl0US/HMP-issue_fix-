@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriMate - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">NutriMate</div>
+            <div>
+                <button class="btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="dashboard">
+            <!-- Meal Tracker -->
+            <div class="card">
+                <h2>Add Meal</h2>
+                <form id="mealForm" onsubmit="addMeal(event)">
+                    <div class="form-group">
+                        <label for="meal">Select Meal</label>
+                        <select id="meal" class="form-control" required>
+                            <option value="">Select a meal...</option>
+                            <option value="Idli">Idli</option>
+                            <option value="Dosa">Dosa</option>
+                            <option value="Paneer Butter Masala">Paneer Butter Masala</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mealType">Meal Type</label>
+                        <select id="mealType" class="form-control" required>
+                            <option value="breakfast">Breakfast</option>
+                            <option value="lunch">Lunch</option>
+                            <option value="dinner">Dinner</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">Add Meal</button>
+                </form>
+            </div>
+
+            <!-- Stats Display -->
+            <div class="card">
+                <h2>Daily Stats</h2>
+                <div class="stats-grid">
+                    <div>
+                        <h3>Calories</h3>
+                        <div class="progress-bar">
+                            <div id="caloriesProgress" class="progress-bar-fill" style="width: 70%"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                            <span id="caloriesConsumed">1,400 / 2,000 kcal</span>
+                            <span id="caloriesPercentage">70%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Today's Meals</h3>
+                        <div id="mealsList" class="stats-grid">
+                            <!-- Meals will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sleep Tracker -->
+            <div class="card">
+                <h2>Sleep Tracker</h2>
+                <form id="sleepForm" onsubmit="addSleep(event)">
+                    <div class="form-group">
+                        <label for="sleepHours">Hours Slept</label>
+                        <input type="number" id="sleepHours" class="form-control" min="0" max="24" step="0.5" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sleepQuality">Sleep Quality</label>
+                        <select id="sleepQuality" class="form-control" required>
+                            <option value="excellent">Excellent</option>
+                            <option value="good">Good</option>
+                            <option value="fair">Fair</option>
+                            <option value="poor">Poor</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">Record Sleep</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function addMeal(event) {
+            event.preventDefault();
+            const meal = document.getElementById('meal').value;
+            const mealType = document.getElementById('mealType').value;
+
+            try {
+                const response = await fetch('/add_meal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ meal, mealType })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStats(data);
+                    document.getElementById('mealForm').reset();
+                } else {
+                    alert('Failed to add meal');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred');
+            }
+        }
+
+        async function addSleep(event) {
+            event.preventDefault();
+            const hours = document.getElementById('sleepHours').value;
+            const quality = document.getElementById('sleepQuality').value;
+
+            try {
+                const response = await fetch('/add_sleep', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hours, quality })
+                });
+
+                if (response.ok) {
+                    document.getElementById('sleepForm').reset();
+                    alert('Sleep record added successfully');
+                } else {
+                    alert('Failed to add sleep record');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred');
+            }
+        }
+
+        function updateStats(data) {
+            const { caloriesConsumed, caloriesTotal, meals } = data;
+            const percentage = Math.round((caloriesConsumed / caloriesTotal) * 100);
+
+            document.getElementById('caloriesProgress').style.width = `${percentage}%`;
+            document.getElementById('caloriesConsumed').textContent = `${caloriesConsumed} / ${caloriesTotal} kcal`;
+            document.getElementById('caloriesPercentage').textContent = `${percentage}%`;
+
+            const mealsList = document.getElementById('mealsList');
+            mealsList.innerHTML = meals.map(meal => `
+                <div class="meal-item">
+                    <span>${meal.name} (${meal.type})</span>
+                    <span>${meal.calories} kcal</span>
+                </div>
+            `).join('');
+        }
+
+        function logout() {
+            fetch('/logout', {
+                method: 'POST',
+                credentials: 'include'
+            }).then(() => {
+                window.location.href = '/login_signup';
+            }).catch(error => {
+                console.error('Logout failed:', error);
+            });
+        }
+
+        // Initial load of stats
+        fetch('/get_stats')
+            .then(response => response.json())
+            .then(updateStats)
+            .catch(console.error);
+    </script>
+</body>
+</html>

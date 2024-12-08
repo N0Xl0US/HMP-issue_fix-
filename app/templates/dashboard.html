@@ -21,6 +21,7 @@
             margin: 0;
             padding: 0;
         }
+
         .dark-mode {
             --bg-color: #ffffff;
             --text-color: #000000;
@@ -166,10 +167,25 @@
             border-radius: 50%;
             object-fit: cover;
         }
+        label, select {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        select {
+            padding: 8px;
+            border-radius: 5px;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            max-height: 200px; /* Limit the height */
+            overflow-y: auto; /* Make the dropdown scrollable */
+        }
     </style>
 </head>
 <body>
-    <header style="padding: 20px; text-align: center; background-color: #1f2937;">
+    <header class="dark-text" style="padding: 20px; text-align: center; background-color: #1f2937;">
         <div class="title">NutriMate</div>
         <div class="actions">
             <button id="darkModeToggle">Toggle Dark Mode</button>
@@ -179,15 +195,36 @@
             <button id="logoutBtn">Logout</button>
         </div>
     </header>
-    <div class="dashboard">
+    <div class="dashboard dark-text">
+        <div class="card dark-text">
+            <h3 class="dark-text">Add a Meal</h3>
+            <form id="mealForm">
+                <label for="meal">Select Meal</label>
+                <select id="meal" required>
+                    <!-- Options will be populated dynamically -->
+                </select>
+            
+                <label for="mealType">Meal Type</label>
+                <select id="mealType" required>
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                </select>
+            
+                <label for="feedback">Feedback</label>
+                <textarea id="feedback" required></textarea>
+            
+                <button type="submit">Add Meal</button>
+            </form>
+        </div>
         <!-- Calories Section -->
-        <div class="card">
-            <h3>Calories Intake</h3>
+        <div class="card dark-text">
+            <h3 class="dark-text">Calories Intake</h3>
             <div class="chart-container">
                 <canvas id="caloriesChart"></canvas>
             </div>
-            <p><strong>Consumed:</strong> <span id="caloriesConsumed">1623 kcal</span></p>
-            <p><strong>Remaining:</strong> <span id="caloriesRemaining">377 kcal</span></p>
+            <p><strong>Consumed:</strong> <span id="caloriesConsumed">0 kcal</span></p>
+            <p><strong>Remaining:</strong> <span id="caloriesRemaining">0 kcal</span></p>
         </div>
 
         <!-- Meals Section -->
@@ -196,9 +233,9 @@
             <div class="chart-container">
                 <canvas id="mealsChart"></canvas>
             </div>
-            <p><strong>Breakfast:</strong> 450 kcal</p>
-            <p><strong>Lunch:</strong> 700 kcal</p>
-            <p><strong>Dinner:</strong> 500 kcal</p>
+            <p><strong>Breakfast:</strong>0 kcal</p>
+            <p><strong>Lunch:</strong>0 kcal</p>
+            <p><strong>Dinner:</strong>0 kcal</p>
         </div>
 
         <!-- Sugar Levels -->
@@ -217,7 +254,7 @@
             <div class="chart-container">
                 <canvas id="macronutrientChart"></canvas>
             </div>
-            <p><strong>Carbs:</strong> 45%</p>
+            <p><strong>Carb:</strong> 45%</p>
             <p><strong>Protein:</strong> 35%</p>
             <p><strong>Fats:</strong> 20%</p>
         </div>
@@ -232,7 +269,7 @@
         </div>
     </div>
 
-    <footer>
+    <footer dark-text>
         <p>&copy; 2024 NutriMate | 
             <a href="/help">Help</a> | 
             <a href="/contact">Contact</a>
@@ -245,61 +282,56 @@
     </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Dark Mode Handling
             const darkModeToggle = document.getElementById('darkModeToggle');
-
             const applyDarkMode = (isDark) => {
                 if (isDark) {
-                    document.body.classList.add('dark-mode');
+                    document.body.classList.add('dark-mode');  // Add dark mode class
                 } else {
-                    document.body.classList.remove('dark-mode');
+                    document.body.classList.remove('dark-mode');  // Remove dark mode class
                 }
             };
-
+        
+            // Load the saved dark mode preference from localStorage
             const savedDarkMode = localStorage.getItem('darkMode') === 'true';
             applyDarkMode(savedDarkMode);
 
+            // Toggle dark mode when the user clicks the toggle button
             darkModeToggle.addEventListener('click', () => {
                 const isDark = document.body.classList.toggle('dark-mode');
                 localStorage.setItem('darkMode', isDark);
+                applyDarkMode(isDark);
             });
-        });
-
-        // Logout Button
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-    try {
-        // Send a request to the backend to clear the session
-        const response = await fetch('/logout', {
-            method: 'POST', // Assuming you use a POST request for logout
-            credentials: 'include', // Ensure cookies/session are sent
-        });
-
-        if (response.ok) {
-            // Redirect to login/signup page after successful logout
-            window.location.href = "/login_signup";
-        } else {
-            console.error('Logout failed:', await response.text());
-            alert('Failed to log out. Please try again.');
-        }
-    } catch (error) {
-        console.error('Error during logout:', error);
-        alert('An unexpected error occurred.');
-    }
-});
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const darkMode = {
-                backgroundColor: '#18181b',
-                gridColor: '#27272a',
-                textColor: '#9ca3af'
-            };
-
-            // Calories Doughnut Chart
-            new Chart(document.getElementById('caloriesChart'), {
+        
+            // Logout Button
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/logout', {
+                        method: 'POST',
+                        credentials: 'include',
+                    });
+        
+                    if (response.ok) {
+                        window.location.href = "/login_signup";
+                    } else {
+                        console.error('Logout failed:', await response.text());
+                        alert('Failed to log out. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error during logout:', error);
+                    alert('An unexpected error occurred.');
+                }
+            });
+        
+            // Setup for Charts (Calories, Meals, Sugar, Macronutrients)
+            const darkMode = { backgroundColor: '#18181b', gridColor: '#27272a', textColor: '#9ca3af' };
+        
+            const caloriesChart = new Chart(document.getElementById('caloriesChart'), {
                 type: 'doughnut',
                 data: {
                     datasets: [{
-                        data: [1623, 377],
+                        data: [1623, 377], 
                         backgroundColor: ['#3b82f6', '#27272a'],
                         borderWidth: 0
                     }]
@@ -311,9 +343,8 @@
                     plugins: { legend: { display: false } }
                 }
             });
-
-            // Meals Doughnut Chart
-            new Chart(document.getElementById('mealsChart'), {
+        
+            const mealsChart = new Chart(document.getElementById('mealsChart'), {
                 type: 'pie',
                 data: {
                     labels: ['Breakfast', 'Lunch', 'Dinner'],
@@ -329,9 +360,8 @@
                     plugins: { legend: { display: true, labels: { color: darkMode.textColor } } }
                 }
             });
-
-            // Sugar Levels Line Chart
-            new Chart(document.getElementById('sugarChart'), {
+        
+            const sugarChart = new Chart(document.getElementById('sugarChart'), {
                 type: 'line',
                 data: {
                     labels: Array(7).fill('').map((_, i) => `Day ${i + 1}`),
@@ -340,35 +370,134 @@
                         borderColor: '#f43f5e',
                         tension: 0.4,
                         borderWidth: 2,
-                        fill: { target: 'origin', above: 'rgba(244, 63, 94, 0.1)' }
+                        fill: false
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { display: false }, x: { display: false } }
+                    scales: {
+                        x: { ticks: { color: darkMode.textColor } },
+                        y: { ticks: { color: darkMode.textColor } }
+                    }
                 }
             });
-
-            // Macronutrients Pie Chart
-            new Chart(document.getElementById('macronutrientChart'), {
-                type: 'pie',
+        
+            const macronutrientChart = new Chart(document.getElementById('macronutrientChart'), {
+                type: 'bar',
                 data: {
-                    labels: ['Carbs', 'Protein', 'Fats'],
+                    labels: ['Carbs', 'Proteins', 'Fats'],
                     datasets: [{
                         data: [45, 35, 20],
-                        backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b'],
+                        backgroundColor: ['#3b82f6', '#a855f7', '#f59e0b'],
                         borderWidth: 0
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: true, labels: { color: darkMode.textColor } } }
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: darkMode.textColor } },
+                        y: { ticks: { color: darkMode.textColor, beginAtZero: true } }
+                    }
                 }
             });
+        
+            // Fetch meals and populate dropdown
+            const mealSelect = document.getElementById('meal');
+        
+            try {
+                const response = await fetch('/get_meals');
+                if (!response.ok) {
+                    console.error('Failed to fetch meals:', response.statusText);
+                    mealSelect.innerHTML = "<option>Error fetching meals</option>";
+                    return;
+                }
+        
+                const meals = await response.json();
+        
+                if (meals && meals.length > 0) {
+                    meals.forEach(meal => {
+                        const option = document.createElement('option');
+                        option.value = meal.meal_id;
+                        option.textContent = meal.meal_name;
+                        mealSelect.appendChild(option);
+                    });
+                } else {
+                    mealSelect.innerHTML = "<option>No meals available</option>";
+                }
+        
+            } catch (error) {
+                console.error('Error fetching meals:', error);
+                mealSelect.innerHTML = "<option>Failed to load meals</option>";
+            }
+
+            document.getElementById('mealForm').addEventListener('submit', async function(event) {
+                event.preventDefault();
+
+                const mealId = document.getElementById('meal').value;
+                const mealType = document.getElementById('mealType').value;
+                const feedback = document.getElementById('feedback').value;
+
+                const mealData = {
+                    meal_id: mealId,
+                    meal_type: mealType,
+                    feedback: feedback,
+                };
+
+                try {
+                    const response = await fetch('/add_meal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(mealData)
+                    });
+
+                    if (response.ok) {
+                        alert('Meal added successfully!');
+                        updateStats(); // Call the function to refresh the stats after meal addition
+                    } else {
+                        console.error('Failed to add meal:', await response.text());
+                        alert('Failed to add meal.');
+                    }
+                } catch (error) {
+                    console.error('Error adding meal:', error);
+                    alert('An error occurred while adding the meal.');
+                }
+            });
+
+            async function updateStats() {
+                try {
+                    // Fetch updated stats (calories, meals breakdown, etc.)
+                    const response = await fetch('/get_updated_stats');
+                    const stats = await response.json();
+
+                    // Update Calories Section
+                    document.getElementById('caloriesConsumed').textContent = `${stats.caloriesConsumed} kcal`;
+                    document.getElementById('caloriesRemaining').textContent = `${stats.caloriesRemaining} kcal`;
+
+                    // Update Meals Breakdown
+                    const mealsChart = Chart.getChart("mealsChart");
+                    mealsChart.data.datasets[0].data = stats.mealBreakdown; // e.g., [450, 700, 500]
+                    mealsChart.update();
+
+                    // Update Sugar Levels
+                    const sugarChart = Chart.getChart("sugarChart");
+                    sugarChart.data.datasets[0].data = stats.sugarLevels; // e.g., [100, 105, 110, 115, 108, 102, 110]
+                    sugarChart.update();
+
+                    // Update Macronutrient Breakdown
+                    const macronutrientChart = Chart.getChart("macronutrientChart");
+                    macronutrientChart.data.datasets[0].data = stats.macronutrientBreakdown; // e.g., [45, 35, 20]
+                    macronutrientChart.update();
+
+                    // If you need to update other sections (e.g., sleep tracker, etc.), follow the same pattern
+                } catch (error) {
+                    console.error('Error fetching updated stats:', error);
+                }
+            }
         });
-    </script>
+        </script>
 </body>
 </html>

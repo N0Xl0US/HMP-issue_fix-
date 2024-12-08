@@ -1,15 +1,15 @@
 import os
-
+import random
+import time
+import smtplib
 from flask import Flask, render_template, request, redirect, session, flash, jsonify, url_for
 from flask_bcrypt import Bcrypt
 from flask_session import Session
-from config import Config
 import mysql.connector
-import random
-import time
-from datetime import datetime, timedelta
-import smtplib
 from werkzeug.utils import secure_filename
+
+from hmp_helper import *
+from config import Config
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -20,17 +20,7 @@ Session(app)
 
 verification_codes = {}
 
-# Database connection
-db = mysql.connector.connect(
-    host=Config.DB_HOST,
-    user=Config.DB_USER,
-    password=Config.DB_PASSWORD,
-    database=Config.DB_NAME
-)
-cursor = db.cursor(dictionary=True)
 
-
-# Helper functions
 def generate_otp():
     return random.randint(100000, 999999)
 
@@ -50,13 +40,11 @@ def send_email(subject, recipient, message_body):
 
 # Routes
 
-# Home route (Landing page)
 @app.route('/')
 def home():
     return render_template('index.html')
 
 
-# About route (Information about the app or service)
 @app.route('/about')
 def about():
     return render_template('about.html')
@@ -67,12 +55,11 @@ def login_signup():
     return render_template('login_signup.html')
 
 
-# Dashboard route (User profile and other data)
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
-        return redirect(url_for('login_signup'))  # Redirect to login if not logged in
-    return render_template('dashboard.html', user_name=session['name'])
+        return redirect(url_for('login_signup'))
+    return render_template('dashboard.html', user_name=session['name'], user_id=session['user_id'])
 
 
 UPLOAD_FOLDER = 'static/uploads/profile_pictures'
@@ -80,57 +67,61 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 
-# Helper function to check allowed file extensions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@app.route('/profile', methods=['GET', 'POST'])
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
     if 'user_id' not in session:
         return redirect(url_for('login_signup'))
 
     if request.method == 'POST':
-        # Update other fields
         new_name = request.form['name']
         new_email = request.form['email']
         new_password = request.form['password']
         profile_picture = request.files.get('profile_picture')
 
-        # Hash the new password if provided
         if new_password:
             new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
-        # Save profile picture if uploaded
-        profile_picture_path = session.get('profile_picture')  # Default to existing picture
+        profile_picture_path = session.get('profile_picture')
         if profile_picture:
-            filename = f"user_{session['user_id']}_{profile_picture.filename}"
-            profile_picture_path = f"static/uploads/profile_pictures/{filename}"
+            filename = secure_filename(f"user_{session['user_id']}_{profile_picture.filename}")
+            profile_picture_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             profile_picture.save(profile_picture_path)
 
-        # Update database
-        cursor.execute("""
-            UPDATE users
-            SET full_name = %s, email = %s, password = %s, profile_picture = %s
-            WHERE user_id = %s
-        """, (new_name, new_email, new_password, profile_picture_path, session['user_id']))
-        db.commit()
+        db = get_db_connection()
+        if db:
+            cursor = db.cursor(dictionary=True)
+            try:
+                cursor.execute("""
+                    UPDATE users
+                    SET full_name = %s, email = %s, password = %s, profile_picture = %s
+                    WHERE user_id = %s
+                """, (new_name, new_email, new_password, profile_picture_path, session['user_id']))
+                db.commit()
 
-        # Update session
-        session['name'] = new_name
-        session['profile_picture'] = profile_picture_path
+                session['name'] = new_name
+                session['profile_picture'] = profile_picture_path
 
-        flash("Profile updated successfully!", "success")
-        return redirect(url_for('profile'))
+                flash("Profile updated successfully!", "success")
+                return redirect(url_for('profile'))
+            except mysql.connector.Error as err:
+                flash(f"Error updating profile: {err}", "danger")
+            finally:
+                close_db_connection(db)
 
-    # Get current user details
-    cursor.execute("SELECT full_name, email, profile_picture FROM users WHERE user_id = %s", (session['user_id'],))
-    user = cursor.fetchone()
+    db = get_db_connection()
+    if db:
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT full_name, email, profile_picture FROM users WHERE user_id = %s", (session['user_id'],))
+        user = cursor.fetchone()
+        close_db_connection(db)
+
     return render_template('profile.html', user=user)
 
 
-# Signup route (Create a new account)
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -138,22 +129,27 @@ def signup():
     email = data['email']
     password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
 
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    if cursor.fetchone():
-        return jsonify({"success": False, "message": "Email already exists."})
+    db = get_db_connection()
+    if db:
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        if cursor.fetchone():
+            close_db_connection(db)
+            return jsonify({"success": False, "message": "Email already exists."})
 
-    verification_code = generate_otp()
-    if send_email("Verify Your Email", email, f"Your verification code is: {verification_code}"):
-        verification_codes[email] = {
-            "code": verification_code,
-            "timestamp": time.time(),
-            "user_data": {"name": name, "email": email, "password": password}
-        }
-        return jsonify({"success": True, "message": "Verification email sent."})
+        verification_code = generate_otp()
+        if send_email("Verify Your Email", email, f"Your verification code is: {verification_code}"):
+            verification_codes[email] = {
+                "code": verification_code,
+                "timestamp": time.time(),
+                "user_data": {"name": name, "email": email, "password": password}
+            }
+            close_db_connection(db)
+            return jsonify({"success": True, "message": "Verification email sent."})
+        close_db_connection(db)
     return jsonify({"success": False, "message": "Failed to send verification email."})
 
 
-# Verify email route (Handle email verification)
 @app.route('/verify-email', methods=['POST'])
 def verify_email():
     data = request.get_json()
@@ -165,80 +161,136 @@ def verify_email():
         return jsonify({"success": False, "message": "Invalid or expired verification code."})
 
     user_data = stored_code_info["user_data"]
-    cursor.execute(
-        "INSERT INTO users (full_name, email, password, email_verified) VALUES (%s, %s, %s, TRUE)",
-        (user_data["name"], user_data["email"], user_data["password"])
-    )
-    db.commit()
-    del verification_codes[email]
+    db = get_db_connection()
+    if db:
+        cursor = db.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                "INSERT INTO users (full_name, email, password, email_verified) VALUES (%s, %s, %s, TRUE)",
+                (user_data["name"], user_data["email"], user_data["password"])
+            )
+            db.commit()
+            del verification_codes[email]
+            close_db_connection(db)
+            return jsonify({"success": True, "message": "Email verified successfully."})
+        except mysql.connector.Error as err:
+            close_db_connection(db)
+            return jsonify({"success": False, "message": f"Error verifying email: {err}"})
+    return jsonify({"success": False, "message": "Database connection failed."})
 
-    return jsonify({"success": True, "message": "Email verified successfully."})
 
-
-# Login route (Authenticate users)
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
     email = data['email']
     password = data['password']
 
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
+    db = get_db_connection()
+    if db:
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
 
-    if not user or not bcrypt.check_password_hash(user["password"], password):
-        return jsonify({"success": False, "message": "Invalid email or password."})
+        if not user or not bcrypt.check_password_hash(user["password"], password):
+            close_db_connection(db)
+            return jsonify({"success": False, "message": "Invalid email or password."})
 
-    if not user["email_verified"]:
-        return jsonify({"success": False, "message": "Please verify your email before logging in."})
+        if not user["email_verified"]:
+            close_db_connection(db)
+            return jsonify({"success": False, "message": "Please verify your email before logging in."})
 
-    session['user_id'] = user['user_id']
-    session['name'] = user['full_name']
-    session['profile_picture'] = user['profile_picture'] or url_for('static', filename='images/default_profile.jpg')
-    return jsonify({"success": True, "message": "Login successful."})
+        session['user_id'] = user['user_id']
+        session['name'] = user['full_name']
+        session['profile_picture'] = user['profile_picture'] or url_for('static', filename='images/default_profile.jpg')
+        close_db_connection(db)
+        return jsonify({"success": True, "message": "Login successful."})
+    return jsonify({"success": False, "message": "Database connection failed."})
 
 
-# Logout route (Clear session and log out the user)
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.clear()  # Clears the session
+    session.clear()
     return jsonify({"success": True, "message": "Logged out successfully."})
 
 
-# Send OTP for password reset
-@app.route('/send-otp', methods=['POST'])
-def send_otp():
-    data = request.get_json()
-    email = data['email']
+@app.route('/add_meal', methods=['POST'])
+def add_meal():
+    try:
+        data = request.get_json()  # Get the data from the request
+        meal_id = data.get('meal_id')
+        meal_type = data.get('meal_type')
+        feedback = data.get('feedback')
 
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    if not cursor.fetchone():
-        return jsonify({"success": False, "message": "Email not found."})
+        # Assuming user_id is stored in session after login
+        user_id = session.get('user_id')  # Retrieve user_id from session
 
-    otp = generate_otp()
-    verification_codes[email] = {"code": otp, "timestamp": time.time()}
+        if not meal_id or not meal_type or not feedback or not user_id:
+            return jsonify({"success": False, "message": "Missing required fields or user is not logged in"})
 
-    if send_email("Your OTP Code", email, f"Your OTP code is: {otp}"):
-        return jsonify({"success": True, "message": "OTP sent to your email."})
-    return jsonify({"success": False, "message": "Failed to send OTP email."})
+        # Assuming you have a function to handle adding meals
+        result = add_meal_to_tracking(user_id, meal_id, meal_type, quantity=1, feedback=feedback)
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"success": False, "message": "An error occurred while adding the meal"})
 
 
-# Reset password route (Allow user to reset password using OTP)
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
-    data = request.get_json()
-    email = data['email']
-    otp = int(data['otp'])
-    new_password = bcrypt.generate_password_hash(data['newPassword']).decode('utf-8')
+@app.route('/get_meal_tracking_stats', methods=['GET'])
+def get_meal_tracking_stats():
+    user_id = session.get('user_id')
+    if user_id:
+        stats = get_meal_tracking_stats(user_id)
+        return jsonify(stats)
+    return jsonify({"error": "User not logged in"}), 403
 
-    stored_code_info = verification_codes.get(email)
-    if not stored_code_info or stored_code_info["code"] != otp or time.time() - stored_code_info["timestamp"] > 300:
-        return jsonify({"success": False, "message": "Invalid or expired OTP."})
 
-    cursor.execute("UPDATE users SET password = %s WHERE email = %s", (new_password, email))
-    db.commit()
-    del verification_codes[email]
+@app.route('/get_meals', methods=['GET'])
+def get_meals():
+    try:
+        connection = get_db_connection()  # Ensure this is returning a valid connection
+        if connection is None:
+            raise Exception("Failed to connect to the database.")
 
-    return jsonify({"success": True, "message": "Password reset successful."})
+        cursor = connection.cursor()
+        cursor.execute("SELECT meal_id, meal_name FROM meals")
+        meals = cursor.fetchall()
+        cursor.close()
+        connection.close()
+
+        if not meals:
+            return jsonify({"error": "No meals found"}), 404  # Return an error if no meals are found
+
+        return jsonify([{"meal_id": meal[0], "meal_name": meal[1]} for meal in meals])
+
+    except Exception as e:
+        print("Error fetching meals:", e)
+        return jsonify({"error": "Failed to fetch meals"}), 500
+
+
+@app.route('/record_sleep', methods=['POST'])
+def record_sleep():
+    data = request.json
+    sleep_duration = data.get('sleepDuration')  # Sleep duration in hours
+    sleep_quality = data.get('sleepQuality')  # Sleep quality on a scale of 1-10
+
+    if not sleep_duration or not sleep_quality:
+        return jsonify({'error': 'Invalid sleep data'}), 400
+
+    user_id = session['user_id']
+    sleep_entry = record_sleep(user_id, sleep_duration, sleep_quality)
+
+    return jsonify(sleep_entry)
+
+
+@app.route('/health_stats', methods=['GET'])
+def health_stats():
+    user_id = session['user_id']
+    period = request.args.get('period', 'daily')  # default to daily stats
+    health_data = get_health_stats(user_id, period)
+
+    return jsonify(health_data)
 
 
 # Error handler for 404 (Page Not Found)
