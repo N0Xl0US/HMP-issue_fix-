@@ -199,20 +199,21 @@
         <div class="card dark-text">
             <h3 class="dark-text">Add a Meal</h3>
             <form id="mealForm">
-                <label for="meal">Select Meal</label>
-                <select id="meal" required>
-                    <!-- Options will be populated dynamically -->
+                <label for="meal">Meal</label>
+                <select id="meal" name="meal_id">
+                    <!-- Options populated dynamically -->
                 </select>
             
                 <label for="mealType">Meal Type</label>
-                <select id="mealType" required>
-                    <option value="breakfast">Breakfast</option>
-                    <option value="lunch">Lunch</option>
-                    <option value="dinner">Dinner</option>
+                <select id="mealType" name="meal_type">
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Snack">Snack</option>
                 </select>
             
                 <label for="feedback">Feedback</label>
-                <textarea id="feedback" required></textarea>
+                <textarea id="feedback" name="feedback"></textarea>
             
                 <button type="submit">Add Meal</button>
             </form>
@@ -456,7 +457,7 @@
 
                     if (response.ok) {
                         alert('Meal added successfully!');
-                        updateStats(); // Call the function to refresh the stats after meal addition
+                        updateStats(); // Refresh stats after adding meal
                     } else {
                         console.error('Failed to add meal:', await response.text());
                         alert('Failed to add meal.');
@@ -472,6 +473,11 @@
                     // Fetch updated stats (calories, meals breakdown, etc.)
                     const response = await fetch('/get_updated_stats');
                     const stats = await response.json();
+
+                    if (stats.error) {
+                        console.error('Error fetching updated stats:', stats.error);
+                        return;
+                    }
 
                     // Update Calories Section
                     document.getElementById('caloriesConsumed').textContent = `${stats.caloriesConsumed} kcal`;
@@ -492,7 +498,6 @@
                     macronutrientChart.data.datasets[0].data = stats.macronutrientBreakdown; // e.g., [45, 35, 20]
                     macronutrientChart.update();
 
-                    // If you need to update other sections (e.g., sleep tracker, etc.), follow the same pattern
                 } catch (error) {
                     console.error('Error fetching updated stats:', error);
                 }

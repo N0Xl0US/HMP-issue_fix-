@@ -227,7 +227,7 @@ def add_meal():
         if not meal_id or not meal_type or not feedback or not user_id:
             return jsonify({"success": False, "message": "Missing required fields or user is not logged in"})
 
-        # Assuming you have a function to handle adding meals
+        # Add meal to tracking
         result = add_meal_to_tracking(user_id, meal_id, meal_type, quantity=1, feedback=feedback)
 
         return jsonify(result)
@@ -237,13 +237,48 @@ def add_meal():
         return jsonify({"success": False, "message": "An error occurred while adding the meal"})
 
 
-@app.route('/get_meal_tracking_stats', methods=['GET'])
-def get_meal_tracking_stats():
-    user_id = session.get('user_id')
-    if user_id:
-        stats = get_meal_tracking_stats(user_id)
-        return jsonify(stats)
-    return jsonify({"error": "User not logged in"}), 403
+def get_meal_tracking_stats(user_id):
+    connection = get_db_connection()
+
+    if connection is None:
+        # If the connection failed, return an empty dictionary or handle the error accordingly
+        return {}
+
+    cursor = connection.cursor()
+
+    # Your query here...
+    query = """
+    SELECT
+        mt.meal_id,
+        mt.total_quantity,
+        m.calories,
+        m.proteins,
+        m.carbs,
+        m.fats,
+        m.sugar
+    FROM meal_tracking mt
+    JOIN meals m ON mt.meal_id = m.meal_id
+    WHERE mt.user_id = %s
+    """
+    cursor.execute(query, (user_id,))
+    meals = cursor.fetchall()
+
+    stats = {}
+    for meal in meals:
+        meal_data = {
+            'meal_id': meal[0],
+            'total_quantity': meal[1],
+            'calories': meal[2],
+            'proteins': meal[3],
+            'carbs': meal[4],
+            'fats': meal[5],
+            'sugar': meal[6]
+        }
+        stats[meal[0]] = meal_data
+
+    cursor.close()
+    close_db_connection(connection)
+    return stats
 
 
 @app.route('/get_meals', methods=['GET'])
@@ -267,6 +302,41 @@ def get_meals():
     except Exception as e:
         print("Error fetching meals:", e)
         return jsonify({"error": "Failed to fetch meals"}), 500
+
+
+@app.route('/get_updated_stats', methods=['GET'])
+def get_updated_stats():
+    user_id = session.get('user_id')
+    if user_id:
+        stats = get_meal_tracking_stats(user_id)
+        print(stats)  # Debug print to check the structure
+
+        response_data = {
+            "caloriesConsumed": sum([
+                (meal['total_quantity'] or 0) * meal['calories'] for meal in stats.values()
+            ]),
+            "mealBreakdown": [meal['total_quantity'] for meal in stats.values()],
+            "sugarLevels": [
+                (meal['total_quantity'] or 0) * (meal['sugar'] or 0)
+                for meal in stats.values()
+            ],
+            "macronutrientBreakdown": {
+                "carbs": sum([
+                    (meal['total_quantity'] or 0) * (meal['carbs'] or 0)
+                    for meal in stats.values()
+                ]),
+                "proteins": sum([
+                    (meal['total_quantity'] or 0) * (meal['proteins'] or 0)
+                    for meal in stats.values()
+                ]),
+                "fats": sum([
+                    (meal['total_quantity'] or 0) * (meal['fats'] or 0)
+                    for meal in stats.values()
+                ])
+            }
+        }
+        return jsonify(response_data)
+    return jsonify({"error": "User not logged in"}), 403
 
 
 @app.route('/record_sleep', methods=['POST'])

@@ -51,10 +51,10 @@ def add_meal_to_tracking(user_id, meal_id, meal_type, quantity, feedback):
         cursor = connection.cursor()
 
         query = """
-            INSERT INTO meal_tracking (user_id, meal_id, tracking_date, quantity, feedback, created_at)
-            VALUES (%s, %s, %s, %s, %s, NOW())
+            INSERT INTO meal_tracking (user_id, meal_id, tracking_date, meal_type, quantity, feedback, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
         """
-        cursor.execute(query, (user_id, meal_id, datetime.now(), quantity, feedback))
+        cursor.execute(query, (user_id, meal_id, datetime.now(), meal_type, quantity, feedback))
         connection.commit()  # Commit the transaction to the database
         cursor.close()  # Close the cursor
         connection.close()  # Close the connection
@@ -65,22 +65,50 @@ def add_meal_to_tracking(user_id, meal_id, meal_type, quantity, feedback):
 
 
 def get_meal_tracking_stats(user_id):
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        query = """
-            SELECT meal_id, SUM(quantity) as total_quantity, meal_type
-            FROM meal_tracking
-            WHERE user_id = %s
-            GROUP BY meal_type
-        """
-        cursor.execute(query, (user_id,))
-        result = cursor.fetchall()
-        cursor.close()
-        return result
-    except Exception as e:
-        print(f"Error: {e}")
-        return {"success": False, "message": "Error fetching meal tracking data"}
+    connection = mysql.connector.connect(
+        host='your_host',
+        user='your_user',
+        password='your_password',
+        database='your_database'
+    )
+    cursor = connection.cursor()
+
+    # Join meals table to include nutritional info
+    query = """
+    SELECT
+        mt.meal_id,
+        mt.total_quantity,
+        m.calories,
+        m.proteins,
+        m.carbs,
+        m.fats,
+        m.sugar
+    FROM meal_tracking mt
+    JOIN meals m ON mt.meal_id = m.meal_id
+    WHERE mt.user_id = %s
+    """
+    cursor.execute(query, (user_id,))
+    meals = cursor.fetchall()
+
+    # Build a dictionary or list to return the data
+    stats = {}
+    for meal in meals:
+        meal_data = {
+            'meal_id': meal[0],
+            'total_quantity': meal[1],
+            'calories': meal[2],
+            'proteins': meal[3],
+            'carbs': meal[4],
+            'fats': meal[5],
+            'sugar': meal[6]
+        }
+        # Use the meal name or type as the key (Breakfast, Snack, etc.)
+        # You may need to adjust how meal types are stored
+        stats[meal[0]] = meal_data  # Or use a more descriptive key
+
+    cursor.close()
+    connection.close()
+    return stats
 
 
 def record_sleep(user_id, sleep_duration, sleep_quality):
@@ -169,3 +197,33 @@ def get_health_stats(user_id, period='daily'):
             db.close()
 
     return {}
+
+
+def get_meal_data_by_id(meal_id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        query = """
+            SELECT meal_name, calories, sugar, carbs, proteins, fats
+            FROM meals
+            WHERE meal_id = %s
+        """
+        cursor.execute(query, (meal_id,))
+        meal_data = cursor.fetchone()
+
+        cursor.close()
+
+        if meal_data:
+            return {
+                "meal_name": meal_data['meal_name'],
+                "calories": meal_data['calories'],
+                "sugar": meal_data['sugar'],
+                "carbs": meal_data['carbs'],
+                "proteins": meal_data['proteins'],
+                "fats": meal_data['fats']
+            }
+        else:
+            return None
+    except Exception as e:
+        print(f"Error fetching meal data: {e}")
+        return None
