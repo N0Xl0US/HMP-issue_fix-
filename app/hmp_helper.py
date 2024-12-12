@@ -1,7 +1,22 @@
-from app import app
+
 from config import Config
 import mysql.connector
 from datetime import datetime, timedelta
+from contextlib import contextmanager
+import logging
+
+
+class DatabaseConnectionError(Exception):
+    """
+    Exception raised for errors occurring while connecting to the database.
+
+    Attributes:
+        message (str): Explanation of the error.
+    """
+
+    def __init__(self, message="Failed to connect to the database"):
+        self.message = message
+        super().__init__(self.message)
 
 
 def get_db_connection():
@@ -23,7 +38,7 @@ def close_db_connection(db):
         if db:
             db.close()
     except mysql.connector.Error as err:
-        app.logger.error(f"Failed to close database connection: {err}")
+        raise DatabaseConnectionError(f"Failed to close database connection: {err}")
 
 
 def get_meal_data(meal_name):
@@ -65,15 +80,12 @@ def add_meal_to_tracking(user_id, meal_id, meal_type, quantity, feedback):
 
 
 def get_meal_tracking_stats(user_id):
-    connection = mysql.connector.connect(
-        host='your_host',
-        user='your_user',
-        password='your_password',
-        database='your_database'
-    )
+    connection = get_db_connection()
+    if connection is None:
+        return {}
+
     cursor = connection.cursor()
 
-    # Join meals table to include nutritional info
     query = """
     SELECT
         mt.meal_id,
@@ -90,21 +102,23 @@ def get_meal_tracking_stats(user_id):
     cursor.execute(query, (user_id,))
     meals = cursor.fetchall()
 
-    # Build a dictionary or list to return the data
+    if not meals:
+        print("No meals found for user_id:", user_id)  # Debug log
+        return {}
+
     stats = {}
     for meal in meals:
+        print("Meal Data:", meal)  # Debug log
         meal_data = {
             'meal_id': meal[0],
-            'total_quantity': meal[1],
-            'calories': meal[2],
-            'proteins': meal[3],
-            'carbs': meal[4],
-            'fats': meal[5],
-            'sugar': meal[6]
+            'total_quantity': meal[1] or 0,
+            'calories': meal[2] or 0,
+            'proteins': meal[3] or 0,
+            'carbs': meal[4] or 0,
+            'fats': meal[5] or 0,
+            'sugar': meal[6] or 0
         }
-        # Use the meal name or type as the key (Breakfast, Snack, etc.)
-        # You may need to adjust how meal types are stored
-        stats[meal[0]] = meal_data  # Or use a more descriptive key
+        stats[meal[0]] = meal_data
 
     cursor.close()
     connection.close()

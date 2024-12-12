@@ -182,11 +182,25 @@
             max-height: 200px; /* Limit the height */
             overflow-y: auto; /* Make the dropdown scrollable */
         }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f9faf8;
+            }
+
+            .logo a {
+            text-decoration: none;
+            color: #e5e7eb;
+            transition: color 0.3s ease;
+            }
     </style>
 </head>
 <body>
     <header class="dark-text" style="padding: 20px; text-align: center; background-color: #1f2937;">
-        <div class="title">NutriMate</div>
+        <div class="logo">
+            <a href="{{ url_for('home') }}" aria-label="Go to homepage">NutriMate</a>
+          </div>
         <div class="actions">
             <button id="darkModeToggle">Toggle Dark Mode</button>
             <div class="profile-pic" onclick="window.location.href='/profile'">
@@ -201,7 +215,7 @@
             <form id="mealForm">
                 <label for="meal">Meal</label>
                 <select id="meal" name="meal_id">
-                    <!-- Options populated dynamically -->
+
                 </select>
             
                 <label for="mealType">Meal Type</label>
@@ -225,7 +239,7 @@
                 <canvas id="caloriesChart"></canvas>
             </div>
             <p><strong>Consumed:</strong> <span id="caloriesConsumed">0 kcal</span></p>
-            <p><strong>Remaining:</strong> <span id="caloriesRemaining">0 kcal</span></p>
+            <p><strong>Remaining:</strong> <span id="caloriesRemaining">2000 kcal</span></p>
         </div>
 
         <!-- Meals Section -->
@@ -234,9 +248,10 @@
             <div class="chart-container">
                 <canvas id="mealsChart"></canvas>
             </div>
-            <p><strong>Breakfast:</strong>0 kcal</p>
-            <p><strong>Lunch:</strong>0 kcal</p>
-            <p><strong>Dinner:</strong>0 kcal</p>
+            <p id="Breakfast"><strong>Breakfast:</strong>0 kcal</p>
+            <p id="Lunch"><strong>Lunch:</strong>0 kcal</p>
+            <p id="Dinner"><strong>Dinner:</strong>0 kcal</p>
+            <p id="Snack"><strong>Snack:</strong>0 kcal</p>
         </div>
 
         <!-- Sugar Levels -->
@@ -255,9 +270,9 @@
             <div class="chart-container">
                 <canvas id="macronutrientChart"></canvas>
             </div>
-            <p><strong>Carb:</strong> 45%</p>
-            <p><strong>Protein:</strong> 35%</p>
-            <p><strong>Fats:</strong> 20%</p>
+            <p id="Carbs"><strong>Carb:</strong> 0%</p>
+            <p id="Proteins"><strong>Protein:</strong> 0%</p>
+            <p id="Fats"><strong>Fats:</strong> 0%</p>
         </div>
 
         <!-- Sleep Tracker -->
@@ -276,9 +291,7 @@
             <a href="/contact">Contact</a>
         </p>
         <div>
-            <a href="#"><img src="static/icons/facebook.svg" alt="Facebook"></a>
-            <a href="#"><img src="static/icons/twitter.svg" alt="Twitter"></a>
-            <a href="#"><img src="static/icons/linkedin.svg" alt="LinkedIn"></a>
+            
         </div>
     </footer>
 
@@ -332,7 +345,7 @@
                 type: 'doughnut',
                 data: {
                     datasets: [{
-                        data: [1623, 377], 
+                        data: [0, 2000], 
                         backgroundColor: ['#3b82f6', '#27272a'],
                         borderWidth: 0
                     }]
@@ -348,10 +361,10 @@
             const mealsChart = new Chart(document.getElementById('mealsChart'), {
                 type: 'pie',
                 data: {
-                    labels: ['Breakfast', 'Lunch', 'Dinner'],
+                    labels: ['Breakfast', 'Lunch', 'Dinner', 'Snack'],
                     datasets: [{
-                        data: [450, 700, 500],
-                        backgroundColor: ['#3b82f6', '#a855f7', '#f59e0b'],
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#3b82f6', '#a855f7', '#f59e0b', '#90EE90'],
                         borderWidth: 0
                     }]
                 },
@@ -367,7 +380,7 @@
                 data: {
                     labels: Array(7).fill('').map((_, i) => `Day ${i + 1}`),
                     datasets: [{
-                        data: [100, 105, 110, 115, 108, 102, 110],
+                        data: [0, 0, 0, 0, 0, 0, 0],
                         borderColor: '#f43f5e',
                         tension: 0.4,
                         borderWidth: 2,
@@ -380,7 +393,7 @@
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { ticks: { color: darkMode.textColor } },
-                        y: { ticks: { color: darkMode.textColor } }
+                        y: { ticks: { color: darkMode.textColor, beginAtZero: true } }
                     }
                 }
             });
@@ -390,7 +403,7 @@
                 data: {
                     labels: ['Carbs', 'Proteins', 'Fats'],
                     datasets: [{
-                        data: [45, 35, 20],
+                        data: [0, 0, 0],
                         backgroundColor: ['#3b82f6', '#a855f7', '#f59e0b'],
                         borderWidth: 0
                     }]
@@ -473,35 +486,66 @@
                     // Fetch updated stats (calories, meals breakdown, etc.)
                     const response = await fetch('/get_updated_stats');
                     const stats = await response.json();
+                    console.log('Meal Breakdown:', stats.mealBreakdown);
 
                     if (stats.error) {
                         console.error('Error fetching updated stats:', stats.error);
                         return;
                     }
 
-                    // Update Calories Section
+                    const caloriesRemaining = 2000 - stats.caloriesConsumed;
                     document.getElementById('caloriesConsumed').textContent = `${stats.caloriesConsumed} kcal`;
                     document.getElementById('caloriesRemaining').textContent = `${stats.caloriesRemaining} kcal`;
 
-                    // Update Meals Breakdown
-                    const mealsChart = Chart.getChart("mealsChart");
-                    mealsChart.data.datasets[0].data = stats.mealBreakdown; // e.g., [450, 700, 500]
-                    mealsChart.update();
+                    const caloriesChartInstance = Chart.getChart("caloriesChart");
+                    caloriesChartInstance.data.datasets[0].data = [stats.caloriesConsumed, caloriesRemaining];
+                    caloriesChartInstance.update();
 
-                    // Update Sugar Levels
-                    const sugarChart = Chart.getChart("sugarChart");
-                    sugarChart.data.datasets[0].data = stats.sugarLevels; // e.g., [100, 105, 110, 115, 108, 102, 110]
-                    sugarChart.update();
+                    const mealsChartInstance = Chart.getChart("mealsChart");
+                    mealsChartInstance.data.datasets[0].data = stats.mealBreakdown;
+                    mealsChartInstance.update();
 
-                    // Update Macronutrient Breakdown
-                    const macronutrientChart = Chart.getChart("macronutrientChart");
-                    macronutrientChart.data.datasets[0].data = stats.macronutrientBreakdown; // e.g., [45, 35, 20]
-                    macronutrientChart.update();
+                    const sugarChartInstance = Chart.getChart("sugarChart");
+                    sugarChartInstance.data.datasets[0].data = stats.sugarLevels;
+                    sugarChartInstance.update();
+
+                    const macronutrientChartInstance = Chart.getChart("macronutrientChart");
+                    macronutrientChartInstance.data.datasets[0].data = [
+                        stats.macronutrientBreakdown.carbs,
+                        stats.macronutrientBreakdown.proteins,
+                        stats.macronutrientBreakdown.fats
+                    ];
+                    macronutrientChartInstance.update();
+
+                    const totalMacronutrients = stats.macronutrientBreakdown.carbs +
+                            stats.macronutrientBreakdown.proteins +
+                            stats.macronutrientBreakdown.fats;
+
+                    if (totalMacronutrients > 0) {
+                        document.getElementById('Carbs').innerHTML = 
+                            `<strong>Carb:</strong> ${((stats.macronutrientBreakdown.carbs / totalMacronutrients) * 100).toFixed(2)}%`;
+                        document.getElementById('Proteins').innerHTML =
+                            `<strong>Protein:</strong> ${((stats.macronutrientBreakdown.proteins / totalMacronutrients) * 100).toFixed(2)}%`;
+                        document.getElementById('Fats').innerHTML =
+                            `<strong>Fats:</strong> ${((stats.macronutrientBreakdown.fats / totalMacronutrients) * 100).toFixed(2)}%`;
+                    } else {
+                        document.getElementById('Carbs').textContent = "0%";
+                        document.getElementById('Proteins').textContent = "0%";
+                        document.getElementById('Fats').textContent = "0%";
+                    }
+
+                    const [breakfast, lunch, dinner, snack] = stats.mealBreakdown || [0, 0, 0, 0];
+                    document.getElementById("Breakfast").innerHTML = `<strong>Breakfast:</strong> ${breakfast} kcal`;
+                    document.getElementById("Lunch").innerHTML = `<strong>Lunch:</strong> ${lunch} kcal`;
+                    document.getElementById("Dinner").innerHTML = `<strong>Dinner:</strong> ${dinner} kcal`;
+                    document.getElementById("Snack").innerHTML = `<strong>Snack:</strong> ${snack} kcal`;
 
                 } catch (error) {
                     console.error('Error fetching updated stats:', error);
                 }
             }
+
+            updateStats();
         });
         </script>
 </body>

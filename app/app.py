@@ -8,7 +8,7 @@ from flask_session import Session
 import mysql.connector
 from werkzeug.utils import secure_filename
 
-from hmp_helper import *
+from hmp_helper import get_db_connection, close_db_connection, add_meal_to_tracking, get_health_stats
 from config import Config
 
 app = Flask(__name__)
@@ -246,7 +246,6 @@ def get_meal_tracking_stats(user_id):
 
     cursor = connection.cursor()
 
-    # Your query here...
     query = """
     SELECT
         mt.meal_id,
@@ -304,7 +303,7 @@ def get_meals():
         return jsonify({"error": "Failed to fetch meals"}), 500
 
 
-@app.route('/get_updated_stats', methods=['GET'])
+@app.route('/get_updated_stats', methods=['GET', 'POST'])
 def get_updated_stats():
     user_id = session.get('user_id')
     if user_id:
@@ -313,24 +312,25 @@ def get_updated_stats():
 
         response_data = {
             "caloriesConsumed": sum([
-                (meal['total_quantity'] or 0) * meal['calories'] for meal in stats.values()
+                float(meal['total_quantity'] or 0) * float(meal['calories'] or 0)
+                for meal in stats.values()
             ]),
-            "mealBreakdown": [meal['total_quantity'] for meal in stats.values()],
+            "mealBreakdown": [float(meal['total_quantity'] or 0) for meal in stats.values()],
             "sugarLevels": [
-                (meal['total_quantity'] or 0) * (meal['sugar'] or 0)
+                float(meal['total_quantity'] or 0) * float(meal['sugar'] or 0)
                 for meal in stats.values()
             ],
             "macronutrientBreakdown": {
                 "carbs": sum([
-                    (meal['total_quantity'] or 0) * (meal['carbs'] or 0)
+                    float(meal['total_quantity'] or 0) * float(meal['carbs'] or 0)
                     for meal in stats.values()
                 ]),
                 "proteins": sum([
-                    (meal['total_quantity'] or 0) * (meal['proteins'] or 0)
+                    float(meal['total_quantity'] or 0) * float(meal['proteins'] or 0)
                     for meal in stats.values()
                 ]),
                 "fats": sum([
-                    (meal['total_quantity'] or 0) * (meal['fats'] or 0)
+                    float(meal['total_quantity'] or 0) * float(meal['fats'] or 0)
                     for meal in stats.values()
                 ])
             }

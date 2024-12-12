@@ -1,0 +1,44 @@
+<div class="health-assessment-form">
+    <form id="healthAssessmentForm" method="POST">
+        <section class="medical-conditions">
+            <h3>Medical Conditions</h3>
+            <div class="condition-group">
+                <label>
+                    <input type="checkbox" name="conditions[]" value="diabetes">
+                    Diabetes
+                </label>
+                <label>
+                    <input type="checkbox" name="conditions[]" value="hypertension">
+                    Hypertension
+                </label>
+                <!-- Add more conditions -->
+            </div>
+        </section>
+
+        <section class="measurements">
+            <h3>Physical Measurements</h3>
+            <div class="measurement-group">
+                <label>
+                    Height (cm)
+                    <input type="number" name="height" required>
+                </label>
+                <label>
+                    Weight (kg)
+                    <input type="number" name="weight" required>
+                </label>
+            </div>
+        </section>
+
+        <section class="activity-level">
+            <h3>Activity Level</h3>
+            <select name="activity_level" required>
+                <option value="sedentary">Sedentary</option>
+                <option value="light">Lightly Active</option>
+                <option value="moderate">Moderately Active</option>
+                <option value="very_active">Very Active</option>
+            </select>
+        </section>
+
+        <button type="submit">Complete Assessment</button>
+    </form>
+</div>

@@ -19,6 +19,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const NotificationSystem = {
+        show(message, type = 'error', duration = 5000) {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.remove(), duration);
+        },
+        
+        error(message) {
+            this.show(message, 'error');
+        },
+        
+        success(message) {
+            this.show(message, 'success');
+        }
+    };
+
     // Handle signup
     const signUpForm = document.querySelector("form[action='/signup']");
     if (signUpForm) {
