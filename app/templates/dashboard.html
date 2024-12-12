@@ -486,62 +486,83 @@
                     // Fetch updated stats (calories, meals breakdown, etc.)
                     const response = await fetch('/get_updated_stats');
                     const stats = await response.json();
-                    console.log('Meal Breakdown:', stats.mealBreakdown);
-
+                    
                     if (stats.error) {
                         console.error('Error fetching updated stats:', stats.error);
                         return;
                     }
 
-                    const caloriesRemaining = 2000 - stats.caloriesConsumed;
-                    document.getElementById('caloriesConsumed').textContent = `${stats.caloriesConsumed} kcal`;
-                    document.getElementById('caloriesRemaining').textContent = `${stats.caloriesRemaining} kcal`;
+                    // Calories
+                    const caloriesConsumed = stats.caloriesConsumed || 0;
+                    const caloriesRemaining = 2000 - caloriesConsumed;
+                    document.getElementById('caloriesConsumed').textContent = `${caloriesConsumed} kcal`;
+                    document.getElementById('caloriesRemaining').textContent = `${caloriesRemaining} kcal`;
 
+                    // Update Calories Chart
                     const caloriesChartInstance = Chart.getChart("caloriesChart");
-                    caloriesChartInstance.data.datasets[0].data = [stats.caloriesConsumed, caloriesRemaining];
-                    caloriesChartInstance.update();
+                    if (caloriesChartInstance) {
+                        caloriesChartInstance.data.datasets[0].data = [caloriesConsumed, caloriesRemaining];
+                        caloriesChartInstance.update();
+                    }
+
+                    // Meal Breakdown
+                    const mealBreakdown = stats.mealBreakdown || {};
+                    const [breakfast = 0, lunch = 0, dinner = 0, snack = 0] = [
+                        mealBreakdown.Breakfast || 0,
+                        mealBreakdown.Lunch || 0,
+                        mealBreakdown.Dinner || 0,
+                        mealBreakdown.Snack || 0,
+                    ];
 
                     const mealsChartInstance = Chart.getChart("mealsChart");
-                    mealsChartInstance.data.datasets[0].data = stats.mealBreakdown;
-                    mealsChartInstance.update();
+                    if (mealsChartInstance) {
+                        mealsChartInstance.data.datasets[0].data = [breakfast, lunch, dinner, snack];
+                        mealsChartInstance.update();
+                    }
 
+                    document.getElementById("Breakfast").innerHTML = `<strong>Breakfast:</strong> ${breakfast} kcal`;
+                    document.getElementById("Lunch").innerHTML = `<strong>Lunch:</strong> ${lunch} kcal`;
+                    document.getElementById("Dinner").innerHTML = `<strong>Dinner:</strong> ${dinner} kcal`;
+                    document.getElementById("Snack").innerHTML = `<strong>Snack:</strong> ${snack} kcal`;
+
+                    // Sugar Levels
+                    const sugarLevels = stats.sugarLevels || Array(7).fill(0);
                     const sugarChartInstance = Chart.getChart("sugarChart");
-                    sugarChartInstance.data.datasets[0].data = stats.sugarLevels;
-                    sugarChartInstance.update();
+                    if (sugarChartInstance) {
+                        sugarChartInstance.data.datasets[0].data = sugarLevels;
+                        sugarChartInstance.update();
+                    }
+
+                    // Macronutrient Breakdown
+                    const macronutrients = stats.macronutrientBreakdown || { carbs: 0, proteins: 0, fats: 0 };
+                    const totalMacronutrients = macronutrients.carbs + macronutrients.proteins + macronutrients.fats;
 
                     const macronutrientChartInstance = Chart.getChart("macronutrientChart");
-                    macronutrientChartInstance.data.datasets[0].data = [
-                        stats.macronutrientBreakdown.carbs,
-                        stats.macronutrientBreakdown.proteins,
-                        stats.macronutrientBreakdown.fats
-                    ];
-                    macronutrientChartInstance.update();
-
-                    const totalMacronutrients = stats.macronutrientBreakdown.carbs +
-                            stats.macronutrientBreakdown.proteins +
-                            stats.macronutrientBreakdown.fats;
+                    if (macronutrientChartInstance) {
+                        macronutrientChartInstance.data.datasets[0].data = [
+                            macronutrients.carbs,
+                            macronutrients.proteins,
+                            macronutrients.fats
+                        ];
+                        macronutrientChartInstance.update();
+                    }
 
                     if (totalMacronutrients > 0) {
                         document.getElementById('Carbs').innerHTML = 
-                            `<strong>Carb:</strong> ${((stats.macronutrientBreakdown.carbs / totalMacronutrients) * 100).toFixed(2)}%`;
+                            `<strong>Carbs:</strong> ${(macronutrients.carbs / totalMacronutrients * 100).toFixed(2)}%`;
                         document.getElementById('Proteins').innerHTML =
-                            `<strong>Protein:</strong> ${((stats.macronutrientBreakdown.proteins / totalMacronutrients) * 100).toFixed(2)}%`;
+                            `<strong>Proteins:</strong> ${(macronutrients.proteins / totalMacronutrients * 100).toFixed(2)}%`;
                         document.getElementById('Fats').innerHTML =
-                            `<strong>Fats:</strong> ${((stats.macronutrientBreakdown.fats / totalMacronutrients) * 100).toFixed(2)}%`;
+                            `<strong>Fats:</strong> ${(macronutrients.fats / totalMacronutrients * 100).toFixed(2)}%`;
                     } else {
                         document.getElementById('Carbs').textContent = "0%";
                         document.getElementById('Proteins').textContent = "0%";
                         document.getElementById('Fats').textContent = "0%";
                     }
 
-                    const [breakfast, lunch, dinner, snack] = stats.mealBreakdown || [0, 0, 0, 0];
-                    document.getElementById("Breakfast").innerHTML = `<strong>Breakfast:</strong> ${breakfast} kcal`;
-                    document.getElementById("Lunch").innerHTML = `<strong>Lunch:</strong> ${lunch} kcal`;
-                    document.getElementById("Dinner").innerHTML = `<strong>Dinner:</strong> ${dinner} kcal`;
-                    document.getElementById("Snack").innerHTML = `<strong>Snack:</strong> ${snack} kcal`;
-
                 } catch (error) {
                     console.error('Error fetching updated stats:', error);
+                    alert("Unable to fetch updated stats. Please try again later.");
                 }
             }
 

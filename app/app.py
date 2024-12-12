@@ -241,16 +241,17 @@ def get_meal_tracking_stats(user_id):
     connection = get_db_connection()
 
     if connection is None:
-        # If the connection failed, return an empty dictionary or handle the error accordingly
         return {}
 
     cursor = connection.cursor()
 
+    # Modified query to include meal_type
     query = """
     SELECT
         mt.meal_id,
         mt.total_quantity,
         m.calories,
+        mt.meal_type, -- Assuming meal_type exists in the meals table
         m.proteins,
         m.carbs,
         m.fats,
@@ -268,10 +269,11 @@ def get_meal_tracking_stats(user_id):
             'meal_id': meal[0],
             'total_quantity': meal[1],
             'calories': meal[2],
-            'proteins': meal[3],
-            'carbs': meal[4],
-            'fats': meal[5],
-            'sugar': meal[6]
+            'meal_type': meal[3],  # Added meal_type
+            'proteins': meal[4],
+            'carbs': meal[5],
+            'fats': meal[6],
+            'sugar': meal[7]
         }
         stats[meal[0]] = meal_data
 
@@ -310,12 +312,18 @@ def get_updated_stats():
         stats = get_meal_tracking_stats(user_id)
         print(stats)  # Debug print to check the structure
 
+        # Aggregate total calories by meal type
+        meal_breakdown = {}
+        for meal in stats.values():
+            meal_type = meal['meal_type']
+            total_calories = float(meal['total_quantity'] or 0) * float(meal['calories'] or 0)
+            if meal_type not in meal_breakdown:
+                meal_breakdown[meal_type] = 0
+            meal_breakdown[meal_type] += total_calories
+
         response_data = {
-            "caloriesConsumed": sum([
-                float(meal['total_quantity'] or 0) * float(meal['calories'] or 0)
-                for meal in stats.values()
-            ]),
-            "mealBreakdown": [float(meal['total_quantity'] or 0) for meal in stats.values()],
+            "caloriesConsumed": sum(meal_breakdown.values()),
+            "mealBreakdown": meal_breakdown,  # Total calories by meal type
             "sugarLevels": [
                 float(meal['total_quantity'] or 0) * float(meal['sugar'] or 0)
                 for meal in stats.values()
