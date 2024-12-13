@@ -283,6 +283,18 @@
             </div>
             <p><strong>Hours Slept:</strong> 6/8 hours</p>
         </div>
+
+        <div class="card">
+            <h3>Overall Health</h3>
+            <div class="chart-container">
+                <canvas id="overallHealthChart"></canvas>
+            </div>
+            <div class="timeframe-toggle">
+                <button id="weeklyView">Weekly</button>
+                <button id="monthlyView">Monthly</button>
+                <button id="yearlyView">Yearly</button>
+            </div>
+        </div>
     </div>
 
     <footer dark-text>
@@ -566,7 +578,33 @@
                 }
             }
 
+            document.getElementById('weeklyView').addEventListener('click', () => loadHealthData('weekly'));
+            document.getElementById('monthlyView').addEventListener('click', () => loadHealthData('monthly'));
+            document.getElementById('yearlyView').addEventListener('click', () => loadHealthData('yearly'));
+
+            async function loadHealthData(view) {
+                try {
+                    const response = await fetch(`/get_health_stats?view=${view}`);
+                    const data = await response.json();
+
+                    if (data.error) {
+                        console.error('Error fetching health stats:', data.error);
+                        return;
+                    }
+
+                    const overallHealthChart = Chart.getChart('overallHealthChart');
+                    if (overallHealthChart) {
+                        overallHealthChart.data.labels = data.labels;
+                        overallHealthChart.data.datasets[0].data = data.values;
+                        overallHealthChart.update();
+                    }
+                } catch (error) {
+                    console.error('Error loading health data:', error);
+                }
+            }
+
             updateStats();
+            loadHealthData('weekly');
         });
         </script>
 </body>
