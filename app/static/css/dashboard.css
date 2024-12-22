@@ -1,0 +1,139 @@
+.notifications-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    max-width: 400px;
+    z-index: 1000;
+}
+
+.notification {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 10px;
+    overflow: hidden;
+    opacity: 1;
+    transition: all 0.3s ease;
+}
+
+.notification.warning {
+    border-left: 4px solid #ffd700;
+}
+
+.notification.alert {
+    border-left: 4px solid #ff4444;
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #f8f9fa;
+}
+
+.notification-header h4 {
+    margin: 0;
+    color: #333;
+    font-size: 1rem;
+}
+
+.close-notification {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0 5px;
+}
+
+.notification-body {
+    padding: 15px;
+}
+
+.progress-info {
+    margin-bottom: 10px;
+}
+
+.progress-info p {
+    margin: 0 0 5px 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #eee;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    transition: width 0.3s ease;
+}
+
+.suggestions {
+    margin-top: 12px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.suggestions h5 {
+    margin: 0 0 8px 0;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.suggestions ul {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.suggestions li {
+    margin: 5px 0;
+    color: #555;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: flex-start;
+    line-height: 1.4;
+}
+
+.suggestion-icon {
+    margin-right: 8px;
+    font-size: 1rem;
+}
+
+/* Animations */
+.notification-slide-in {
+    animation: slideIn 0.3s ease forwards;
+}
+
+.notification-fade-out {
+    animation: fadeOut 0.5s ease forwards;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}

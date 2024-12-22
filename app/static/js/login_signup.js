@@ -43,26 +43,38 @@ document.addEventListener('DOMContentLoaded', () => {
     if (signUpForm) {
         signUpForm.addEventListener("submit", async (e) => {
             e.preventDefault();
-            const { name, email, password } = Object.fromEntries(new FormData(e.target));
-            showMessage("signUpMessage", ""); // Clear previous messages
+            const name = document.getElementById("signupName").value;
+            const email = document.getElementById("signupEmail").value;
+            const password = document.getElementById("signupPassword").value;
+            
+            // Get selected chronic conditions
+            
+            const conditionsSelect = document.getElementById("chronic-conditions");
+            const selectedConditions = Array.from(conditionsSelect.selectedOptions)
+                .map(option => option.value)
+                .filter(value => value !== 'none')
+                .join(', ');
 
             try {
-                const response = await fetch('/signup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password }),
+                const response = await fetch("/signup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        password,
+                        chronic_conditions: selectedConditions
+                    }),
                 });
-                const result = await response.json();
-                if (response.ok && result.success) {
-                    document.getElementById("verificationModal").style.display = "flex";
-                    document.getElementById("verificationEmail").value = email;
-                    showMessage("signUpMessage", "Signup successful! Please verify your email.", "success");
+                const data = await response.json();
+                if (data.success) {
+                    showVerificationForm(email);
                 } else {
-                    showMessage("signUpMessage", result.message || "Signup failed.", "error");
+                    showMessage("signupError", data.message || "Signup failed. Please try again.", "error");
                 }
             } catch (error) {
-                console.error("Error during signup:", error);
-                showMessage("signUpMessage", "An unexpected error occurred. Please try again.", "error");
+                console.error('Error during signup:', error);
+                showMessage("signupError", "An unexpected error occurred. Please try again.", "error");
             }
         });
     }

@@ -128,6 +128,7 @@ def signup():
     name = data['name']
     email = data['email']
     password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+    chronic_conditions = data.get('chronic_conditions', '')  # New field
 
     db = get_db_connection()
     if db:
@@ -142,7 +143,12 @@ def signup():
             verification_codes[email] = {
                 "code": verification_code,
                 "timestamp": time.time(),
-                "user_data": {"name": name, "email": email, "password": password}
+                "user_data": {
+                    "name": name,
+                    "email": email,
+                    "password": password,
+                    "chronic_conditions": chronic_conditions
+                }
             }
             close_db_connection(db)
             return jsonify({"success": True, "message": "Verification email sent."})
@@ -166,8 +172,8 @@ def verify_email():
         cursor = db.cursor(dictionary=True)
         try:
             cursor.execute(
-                "INSERT INTO users (full_name, email, password, email_verified) VALUES (%s, %s, %s, TRUE)",
-                (user_data["name"], user_data["email"], user_data["password"])
+                "INSERT INTO users (full_name, email, password, email_verified, chronic_conditions) VALUES (%s, %s, %s, TRUE, %s)",
+                (user_data["name"], user_data["email"], user_data["password"], user_data["chronic_conditions"])
             )
             db.commit()
             del verification_codes[email]
@@ -216,21 +222,26 @@ def logout():
 @app.route('/add_meal', methods=['POST'])
 def add_meal():
     try:
-        data = request.get_json()  # Get the data from the request
+        data = request.get_json()
         meal_id = data.get('meal_id')
         meal_type = data.get('meal_type')
         feedback = data.get('feedback')
-
-        # Assuming user_id is stored in session after login
-        user_id = session.get('user_id')  # Retrieve user_id from session
+        user_id = session.get('user_id')
 
         if not meal_id or not meal_type or not feedback or not user_id:
             return jsonify({"success": False, "message": "Missing required fields or user is not logged in"})
 
         # Add meal to tracking
         result = add_meal_to_tracking(user_id, meal_id, meal_type, quantity=1, feedback=feedback)
-
-        return jsonify(result)
+        
+        # Check nutritional limits and generate notifications
+        notifications = check_nutritional_limits(user_id)
+        
+        return jsonify({
+            "success": result["success"],
+            "message": result["message"],
+            "notifications": notifications
+        })
 
     except Exception as e:
         print(f"Error: {e}")
@@ -376,6 +387,202 @@ def health_stats():
 def page_not_found(e):
     logged_in = 'user_id' in session
     return render_template('404.html', logged_in=logged_in), 404
+
+
+def check_nutritional_limits(user_id):
+    """Check if user is approaching or has exceeded nutritional limits"""
+    db = get_db_connection()
+    if not db:
+        return False
+
+    cursor = db.cursor(dictionary=True)
+    
+    # Get user's daily limits from user preferences/settings
+    cursor.execute("""
+        SELECT daily_calorie_limit, daily_sugar_limit, daily_sodium_limit 
+        FROM user_preferences 
+        WHERE user_id = %s
+    """, (user_id,))
+    limits = cursor.fetchone()
+    
+    if not limits:
+        close_db_connection(db)
+        return False
+
+    # Get today's total intake
+    cursor.execute("""
+        SELECT 
+            SUM(m.calories * mt.total_quantity) as total_calories,
+            SUM(m.sugar * mt.total_quantity) as total_sugar,
+            SUM(m.sodium * mt.total_quantity) as total_sodium
+        FROM meal_tracking mt
+        JOIN meals m ON mt.meal_id = m.meal_id
+        WHERE mt.user_id = %s 
+        AND DATE(mt.tracked_at) = CURDATE()
+    """, (user_id,))
+    
+    totals = cursor.fetchone()
+    
+    notifications = []
+    
+    # Check each nutritional value
+    for nutrient, total, limit in [
+        ('calories', totals['total_calories'], limits['daily_calorie_limit']),
+        ('sugar', totals['total_sugar'], limits['daily_sugar_limit']),
+        ('sodium', totals['total_sodium'], limits['daily_sodium_limit'])
+    ]:
+        if total is None:
+            continue
+            
+        # About to exceed (80% of limit)
+        if 0.8 * limit <= total < limit:
+            suggestions = generate_nutritional_suggestions(nutrient, total, limit, user_id)
+            notifications.append({
+                'type': 'warning',
+                'message': f'You are approaching your daily {nutrient} limit',
+                'nutrient': nutrient,
+                'current': total,
+                'limit': limit,
+                'suggestions': suggestions
+            })
+        # Exceeded
+        elif total >= limit:
+            suggestions = generate_nutritional_suggestions(nutrient, total, limit, user_id)
+            notifications.append({
+                'type': 'alert',
+                'message': f'You have exceeded your daily {nutrient} limit',
+                'nutrient': nutrient,
+                'current': total,
+                'limit': limit,
+                'suggestions': suggestions
+            })
+    
+    # Store notifications in database
+    if notifications:
+        for notif in notifications:
+            cursor.execute("""
+                INSERT INTO notifications 
+                (user_id, type, message, created_at, is_read, suggestions)
+                VALUES (%s, %s, %s, NOW(), FALSE, %s)
+            """, (user_id, notif['type'], notif['message'], 
+                  ','.join(notif.get('suggestions', []))))
+        db.commit()
+    
+    close_db_connection(db)
+    return notifications
+
+
+@app.route('/get_notifications', methods=['GET'])
+def get_notifications():
+    if 'user_id' not in session:
+        return jsonify({"success": False, "message": "User not logged in"})
+        
+    db = get_db_connection()
+    if not db:
+        return jsonify({"success": False, "message": "Database connection failed"})
+        
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT id, type, message, created_at, is_read 
+        FROM notifications 
+        WHERE user_id = %s 
+        ORDER BY created_at DESC 
+        LIMIT 10
+    """, (session['user_id'],))
+    
+    notifications = cursor.fetchall()
+    close_db_connection(db)
+    
+    return jsonify({
+        "success": True,
+        "notifications": notifications
+    })
+
+
+@app.route('/mark_notification_read', methods=['POST'])
+def mark_notification_read():
+    if 'user_id' not in session:
+        return jsonify({"success": False, "message": "User not logged in"})
+        
+    notification_id = request.json.get('notification_id')
+    if not notification_id:
+        return jsonify({"success": False, "message": "Notification ID required"})
+        
+    db = get_db_connection()
+    if not db:
+        return jsonify({"success": False, "message": "Database connection failed"})
+        
+    cursor = db.cursor()
+    cursor.execute("""
+        UPDATE notifications 
+        SET is_read = TRUE 
+        WHERE id = %s AND user_id = %s
+    """, (notification_id, session['user_id']))
+    
+    db.commit()
+    close_db_connection(db)
+    
+    return jsonify({"success": True, "message": "Notification marked as read"})
+
+
+def generate_nutritional_suggestions(nutrient, current_value, limit, user_id):
+    """Generate personalized suggestions based on nutritional limits"""
+    db = get_db_connection()
+    if not db:
+        return []
+        
+    cursor = db.cursor(dictionary=True)
+    suggestions = []
+    
+    if nutrient == 'calories':
+        # Get lower calorie alternatives from meals table
+        cursor.execute("""
+            SELECT m.meal_name, m.calories 
+            FROM meals m
+            JOIN meal_tracking mt ON m.meal_id = mt.meal_id
+            WHERE mt.user_id = %s 
+            AND DATE(mt.tracked_at) = CURDATE()
+            ORDER BY m.calories ASC
+            LIMIT 3
+        """, (user_id,))
+        alternatives = cursor.fetchall()
+        
+        suggestions.append("Consider lighter meals for your next meal period")
+        if alternatives:
+            suggestions.append(f"Try these lower-calorie alternatives: {', '.join([meal['meal_name'] for meal in alternatives])}")
+            
+    elif nutrient == 'sugar':
+        suggestions.append("Reduce sugar intake by avoiding sugary drinks and desserts")
+        suggestions.append("Choose fresh fruits instead of processed snacks")
+        
+        # Get low sugar alternatives
+        cursor.execute("""
+            SELECT meal_name FROM meals 
+            WHERE sugar < 5 
+            ORDER BY RAND() 
+            LIMIT 2
+        """)
+        alternatives = cursor.fetchall()
+        if alternatives:
+            suggestions.append(f"Consider these low-sugar options: {', '.join([meal['meal_name'] for meal in alternatives])}")
+            
+    elif nutrient == 'sodium':
+        suggestions.append("Reduce sodium by avoiding processed and packaged foods")
+        suggestions.append("Choose fresh vegetables and lean proteins")
+        
+        # Get low sodium meals
+        cursor.execute("""
+            SELECT meal_name FROM meals 
+            WHERE sodium < 500 
+            ORDER BY RAND() 
+            LIMIT 2
+        """)
+        alternatives = cursor.fetchall()
+        if alternatives:
+            suggestions.append(f"Try these low-sodium alternatives: {', '.join([meal['meal_name'] for meal in alternatives])}")
+    
+    close_db_connection(db)
+    return suggestions
 
 
 if __name__ == "__main__":

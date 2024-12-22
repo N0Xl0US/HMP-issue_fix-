@@ -20,6 +20,19 @@
                 <input type="text" name="name" placeholder="Name" required />
                 <input type="email" name="email" placeholder="Email" required />
                 <input type="password" name="password" placeholder="Password" required />
+                <div class="form-group">
+                    <label for="chronic-conditions">Chronic Conditions (if any)</label>
+                    <select id="chronic-conditions" multiple class="form-control">
+                        <option value="none">None</option>
+                        <option value="diabetes">Diabetes</option>
+                        <option value="hypertension">Hypertension</option>
+                        <option value="heart_disease">Heart Disease</option>
+                        <option value="celiac">Celiac Disease</option>
+                        <option value="lactose_intolerant">Lactose Intolerance</option>
+                        <option value="gluten_sensitive">Gluten Sensitivity</option>
+                    </select>
+                    <small class="form-text">Hold Ctrl/Cmd to select multiple conditions</small>
+                </div>
                 <div id="signUpMessage" class="message"></div>
                 <button type="submit">Sign Up</button>
             </form>

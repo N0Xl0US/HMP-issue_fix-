@@ -1,4 +1,3 @@
-
 @import url('https://fonts.googleapis.com/css?family=Montserrat:400,800');
 
 * {
@@ -333,4 +332,43 @@ footer a {
 	background-color: #f8d7da;
 	color: #721c24;
 	border: 1px solid #f5c6cb;
+}
+
+.form-group {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.form-group select[multiple] {
+    width: 100%;
+    min-height: 100px;
+    padding: 8px;
+    background-color: #eee;
+    border: none;
+    border-radius: 4px;
+}
+
+.form-group .form-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.8em;
+    color: #666;
+}
+
+/* Style for the options */
+.form-group select[multiple] option {
+    padding: 5px;
+}
+
+/* Style for selected options */
+.form-group select[multiple] option:checked {
+    background-color: #3b82f6;
+    color: white;
 }
