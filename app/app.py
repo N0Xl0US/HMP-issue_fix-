@@ -2,11 +2,14 @@ import os
 import random
 import time
 import smtplib
-from flask import Flask, render_template, request, redirect, session, flash, jsonify, url_for
+from flask import Flask, render_template, request, redirect, session, flash, jsonify, url_for, Blueprint
 from flask_bcrypt import Bcrypt
 from flask_session import Session
 import mysql.connector
 from werkzeug.utils import secure_filename
+from typing import List, Dict
+from datetime import datetime, timedelta
+from functools import wraps
 
 from hmp_helper import get_db_connection, close_db_connection, add_meal_to_tracking, get_health_stats
 from config import Config
@@ -19,6 +22,122 @@ app.config["SESSION_FILE_DIR"] = "./flask_session_cache"
 Session(app)
 
 verification_codes = {}
+
+class MealPlanner:
+    def __init__(self, db_connection):
+        self.db = db_connection
+
+    def get_suitable_recipes(self, meal_type: str, conditions: List[str], 
+                           calorie_target: int) -> List[Dict]:
+        """Get recipes suitable for given conditions and calorie target"""
+        condition_filter = ""
+        if conditions:
+            condition_filter = "AND (" + " OR ".join([
+                f"suitable_conditions LIKE '%{cond}%'" 
+                for cond in conditions
+            ]) + ")"
+            
+        query = f"""
+            SELECT * FROM recipes 
+            WHERE meal_type = %s 
+            {condition_filter}
+            AND calories <= %s
+            ORDER BY RAND()
+            LIMIT 5
+        """
+        
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute(query, (meal_type, calorie_target * 0.4))
+        return cursor.fetchall()
+
+    def generate_daily_plan(self, user_id: int, date: datetime) -> Dict:
+        """Generate a daily meal plan for user"""
+        # Get user details and conditions
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT chronic_conditions, daily_calories 
+            FROM users WHERE id = %s
+        """, (user_id,))
+        user_data = cursor.fetchone()
+        
+        conditions = user_data['chronic_conditions'].split(',')
+        daily_calories = user_data['daily_calories']
+
+        # Generate meal plan
+        breakfast = self.get_suitable_recipes('breakfast', conditions, 
+                                           daily_calories * 0.25)
+        lunch = self.get_suitable_recipes('lunch', conditions, 
+                                        daily_calories * 0.35)
+        dinner = self.get_suitable_recipes('dinner', conditions, 
+                                         daily_calories * 0.35)
+        snacks = self.get_suitable_recipes('snack', conditions, 
+                                         daily_calories * 0.05)
+
+        # Save to database
+        cursor.execute("""
+            INSERT INTO meal_plans 
+            (user_id, plan_date, breakfast_id, lunch_id, dinner_id, snacks_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            user_id, date,
+            breakfast[0]['id'], lunch[0]['id'],
+            dinner[0]['id'], snacks[0]['id']
+        ))
+        self.db.commit()
+
+        return {
+            'breakfast': breakfast[0],
+            'lunch': lunch[0],
+            'dinner': dinner[0],
+            'snacks': snacks[0],
+            'total_calories': sum(m['calories'] for m in 
+                                [breakfast[0], lunch[0], dinner[0], snacks[0]])
+        }
+
+    def customize_meal_plan(self, plan_id: int, meal_updates: Dict) -> Dict:
+        """Allow users to customize their meal plan"""
+        update_fields = []
+        update_values = []
+        
+        for meal_type, recipe_id in meal_updates.items():
+            field_name = f"{meal_type}_id"
+            update_fields.append(f"{field_name} = %s")
+            update_values.append(recipe_id)
+            
+        update_values.append(plan_id)
+        
+        cursor = self.db.cursor()
+        cursor.execute(f"""
+            UPDATE meal_plans 
+            SET {', '.join(update_fields)}, is_custom = TRUE
+            WHERE id = %s
+        """, tuple(update_values))
+        
+        self.db.commit()
+        
+        return self.get_meal_plan(plan_id)
+
+    def get_meal_plan(self, plan_id: int) -> Dict:
+        """Get a specific meal plan with recipe details"""
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT mp.*, 
+                   b.name as breakfast_name, b.calories as breakfast_calories,
+                   l.name as lunch_name, l.calories as lunch_calories,
+                   d.name as dinner_name, d.calories as dinner_calories,
+                   s.name as snack_name, s.calories as snack_calories
+            FROM meal_plans mp
+            JOIN recipes b ON mp.breakfast_id = b.id
+            JOIN recipes l ON mp.lunch_id = l.id
+            JOIN recipes d ON mp.dinner_id = d.id
+            JOIN recipes s ON mp.snacks_id = s.id
+            WHERE mp.id = %s
+        """, (plan_id,))
+        
+        return cursor.fetchone()
+
+meal_plans = Blueprint('meal_plans', __name__)
+meal_planner = MealPlanner(mysql.connector)
 
 
 def generate_otp():
@@ -583,6 +702,58 @@ def generate_nutritional_suggestions(nutrient, current_value, limit, user_id):
     
     close_db_connection(db)
     return suggestions
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login_signup'))
+        return f(*args, **kwargs)
+    return decorated_function 
+
+@meal_plans.route('/generate_meal_plan', methods=['POST'])
+@login_required
+def generate_meal_plan():
+    try:
+        date = datetime.strptime(
+            request.json.get('date', datetime.now().strftime('%Y-%m-%d')),
+            '%Y-%m-%d'
+        )
+        
+        plan = meal_planner.generate_daily_plan(
+            session['user_id'], 
+            date
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'meal_plan': plan
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+       
+
+@meal_plans.route('/customize_meal_plan/<int:plan_id>', methods=['PUT'])
+@login_required
+def customize_meal_plan(plan_id):
+    try:
+        updates = request.json
+        plan = meal_planner.customize_meal_plan(plan_id, updates)
+        
+        return jsonify({
+            'status': 'success',
+            'meal_plan': plan
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 
 if __name__ == "__main__":

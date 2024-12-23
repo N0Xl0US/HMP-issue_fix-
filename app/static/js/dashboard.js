@@ -313,4 +313,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Check for notifications every 30 seconds
     setInterval(checkNotifications, 30000);
+
+    // Function to fetch and display notifications
+    function loadNotifications() {
+        fetch('/get_notifications')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const notifications = data.notifications;
+                    // Example: Display in a notification area
+                    const notificationArea = document.getElementById('notification-area');
+                    notificationArea.innerHTML = '';
+                    
+                    notifications.forEach(notification => {
+                        const notifElement = document.createElement('div');
+                        notifElement.className = `notification ${notification.type}`;
+                        notifElement.innerHTML = `
+                            <p>${notification.message}</p>
+                            <small>${new Date(notification.created_at).toLocaleString()}</small>
+                        `;
+                        notificationArea.appendChild(notifElement);
+                    });
+                }
+            });
+    }
+
+    // Call this function when the dashboard loads
+    document.addEventListener('DOMContentLoaded', loadNotifications);
+
+    // Optionally, refresh notifications periodically
+    setInterval(loadNotifications, 60000); // Update every minute
 }); 

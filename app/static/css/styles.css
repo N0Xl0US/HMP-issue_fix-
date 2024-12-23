@@ -109,6 +109,24 @@
     display: grid;
     gap: 1rem;
   }
+
+  .notification {
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 4px;
+}
+
+.notification.warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    color: #856404;
+}
+
+.notification.alert {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
   
   .meal-item {
     display: flex;
