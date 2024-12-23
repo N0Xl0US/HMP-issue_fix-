@@ -226,4 +226,51 @@ document.addEventListener('DOMContentLoaded', () => {
             forgotPasswordForm.style.display = 'none';
         });
     }
+
+    const conditionsSelect = document.getElementById("chronic-conditions");
+    if (conditionsSelect) {
+        const selectedConditionsDiv = document.getElementById("selected-conditions");
+        
+        function updateSelectedConditions() {
+            const selectedOptions = Array.from(conditionsSelect.selectedOptions);
+            selectedConditionsDiv.innerHTML = '';
+            
+            // If no conditions are selected or only "none" is selected
+            if (selectedOptions.length === 0 || 
+                (selectedOptions.length === 1 && selectedOptions[0].value === 'none')) {
+                selectedConditionsDiv.innerHTML = '<p class="condition-tag">No conditions selected</p>';
+                return;
+            }
+            
+            // Filter out "none" option and create tags
+            selectedOptions
+                .filter(option => option.value !== 'none')
+                .forEach(option => {
+                    const tag = document.createElement('span');
+                    tag.className = 'condition-tag';
+                    tag.textContent = option.text;
+                    selectedConditionsDiv.appendChild(tag);
+                });
+        }
+        
+        // Handle selection changes
+        conditionsSelect.addEventListener('change', (e) => {
+            // If "none" is selected, deselect everything else
+            if (Array.from(conditionsSelect.selectedOptions).some(opt => opt.value === 'none')) {
+                Array.from(conditionsSelect.options).forEach(opt => {
+                    if (opt.value !== 'none') opt.selected = false;
+                });
+            }
+            // If anything else is selected, deselect "none"
+            else if (e.target.value !== 'none') {
+                const noneOption = Array.from(conditionsSelect.options).find(opt => opt.value === 'none');
+                if (noneOption) noneOption.selected = false;
+            }
+            
+            updateSelectedConditions();
+        });
+        
+        // Initial update
+        updateSelectedConditions();
+    }
 });

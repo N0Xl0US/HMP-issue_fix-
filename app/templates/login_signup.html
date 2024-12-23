@@ -17,9 +17,9 @@
                     <a href="#" class="social"><i class="fab fa-google"></i></a>
                 </div>
                 <span>or use your email for registration</span>
-                <input type="text" name="name" placeholder="Name" required />
-                <input type="email" name="email" placeholder="Email" required />
-                <input type="password" name="password" placeholder="Password" required />
+                <input type="text" name="name" id="signupName" placeholder="Name" required />
+                <input type="email" name="email" id="signupEmail" placeholder="Email" required />
+                <input type="password" name="password" id="signupPassword" placeholder="Password" required />
                 <div class="form-group">
                     <label for="chronic-conditions">Chronic Conditions (if any)</label>
                     <select id="chronic-conditions" multiple class="form-control">
@@ -32,6 +32,7 @@
                         <option value="gluten_sensitive">Gluten Sensitivity</option>
                     </select>
                     <small class="form-text">Hold Ctrl/Cmd to select multiple conditions</small>
+                    <div id="selected-conditions" class="selected-conditions"></div>
                 </div>
                 <div id="signUpMessage" class="message"></div>
                 <button type="submit">Sign Up</button>
