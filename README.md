@@ -83,14 +83,23 @@ A web application designed to help individuals with chronic diseases plan health
 Create a `.env` file in the root directory with the following variables:
 
 SECRET_KEY=your_secret_key
+
 SESSION_TYPE=filesystem
+
 DB_HOST=localhost
+
 DB_USER=your_database_user
+
 DB_PASSWORD=your_database_password
+
 DB_NAME=healthy_meal_planner
+
 EMAIL_SENDER=your_email@gmail.com
+
 EMAIL_PASSWORD=your_app_password
+
 SMTP_SERVER=smtp.gmail.com
+
 SMTP_PORT=587
 
 > **Note**: Replace the placeholder values with your actual credentials. Never commit the real `.env` file with sensitive information to version control.
