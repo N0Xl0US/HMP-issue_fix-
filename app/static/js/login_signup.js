@@ -113,8 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const email = document.getElementById("verificationEmail").value;
             const code = document.getElementById("verificationCode").value;
-            showMessage("verificationError", ""); // Clear previous messages
-
+            
             try {
                 const response = await fetch("/verify-email", {
                     method: "POST",
@@ -122,14 +121,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ email, code }),
                 });
                 const data = await response.json();
+                
                 if (data.success) {
+                    NotificationSystem.success("Email verified successfully!");
                     window.location.href = "/dashboard";
                 } else {
-                    showMessage("verificationError", data.message || "Invalid code. Please try again.", "error");
+                    NotificationSystem.error(data.message || "Invalid verification code");
                 }
             } catch (error) {
-                console.error('Error verifying code:', error);
-                showMessage("verificationError", "An unexpected error occurred. Please try again.", "error");
+                console.error('Error:', error);
+                NotificationSystem.error("An unexpected error occurred");
             }
         });
     }
@@ -140,24 +141,68 @@ document.addEventListener('DOMContentLoaded', () => {
         forgotPasswordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('forgot-email').value;
-            showMessage("forgotPasswordMessage", ""); // Clear previous messages
-
+            
             try {
                 const response = await fetch('/send-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email }),
+                    body: JSON.stringify({ email, type: 'reset' })
                 });
                 const data = await response.json();
+                
                 if (data.success) {
-                    showMessage("forgotPasswordMessage", "OTP sent to your email!", "success");
-                    showOtpField();
+                    NotificationSystem.success('OTP sent to your email!');
+                    switchForm('otp-form', 'forgot-password-form');
                 } else {
-                    showMessage("forgotPasswordMessage", data.message || "Error sending OTP.", "error");
+                    NotificationSystem.error(data.message || 'Error sending OTP');
                 }
             } catch (error) {
-                console.error('Error sending OTP:', error);
-                showMessage("forgotPasswordMessage", "An unexpected error occurred. Please try again.", "error");
+                console.error('Error:', error);
+                NotificationSystem.error('An unexpected error occurred');
+            }
+        });
+    }
+
+    // OTP verification form handler
+    const otpForm = document.getElementById('otp-form');
+    if (otpForm) {
+        otpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('forgot-email').value;
+            const otp = document.getElementById('otp').value;
+            
+            try {
+                const response = await fetch('/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp, type: 'reset' })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    NotificationSystem.success('OTP verified!');
+                    switchForm('reset-password-form', 'otp-form');
+                } else {
+                    NotificationSystem.error(data.message || 'Invalid OTP');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                NotificationSystem.error('An unexpected error occurred');
+            }
+        });
+    }
+
+    // Helper function to switch between forms
+    function switchForm(showFormId, ...hideFormIds) {
+        const showForm = document.getElementById(showFormId);
+        if (showForm) {
+            showForm.style.display = 'block';
+        }
+        
+        hideFormIds.forEach(formId => {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.style.display = 'none';
             }
         });
     }
@@ -335,5 +380,63 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.target == modal) {
             modal.style.display = 'none';
         }
+    }
+
+    // Add password reset handler
+    const resetPasswordForm = document.getElementById('reset-password-form');
+    if (resetPasswordForm) {
+        resetPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('forgot-email').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // Add password validation
+            if (newPassword.length < 8) {
+                NotificationSystem.error("Password must be at least 8 characters long");
+                return;
+            }
+
+            if (!/[A-Z]/.test(newPassword)) {
+                NotificationSystem.error("Password must contain at least one uppercase letter");
+                return;
+            }
+
+            if (!/[0-9]/.test(newPassword)) {
+                NotificationSystem.error("Password must contain at least one number");
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                NotificationSystem.error("Passwords don't match!");
+                return;
+            }
+
+            try {
+                const response = await fetch('/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password: newPassword })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    NotificationSystem.success('Password reset successfully!');
+                    // Clear the forms
+                    resetPasswordForm.reset();
+                    document.getElementById('forgot-password-form').reset();
+                    document.getElementById('otp-form').reset();
+                    // Hide the reset password form
+                    resetPasswordForm.style.display = 'none';
+                    // Show the login form
+                    document.getElementById('login-form').style.display = 'block';
+                } else {
+                    NotificationSystem.error(data.message || 'Failed to reset password');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                NotificationSystem.error('An unexpected error occurred');
+            }
+        });
     }
 });

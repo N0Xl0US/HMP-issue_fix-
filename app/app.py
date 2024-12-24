@@ -247,7 +247,7 @@ def signup():
     name = data['name']
     email = data['email']
     password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-    chronic_conditions = data.get('chronic_conditions', '')  # New field
+    chronic_conditions = data.get('chronic_conditions', '')
 
     db = get_db_connection()
     if db:
@@ -258,19 +258,19 @@ def signup():
             return jsonify({"success": False, "message": "Email already exists."})
 
         verification_code = generate_otp()
-        if send_email("Verify Your Email", email, f"Your verification code is: {verification_code}"):
-            verification_codes[email] = {
-                "code": verification_code,
-                "timestamp": time.time(),
-                "user_data": {
+        # Store verification code in database
+        if store_verification_code(email, verification_code, 'signup'):
+            # Send verification email
+            if send_email("Verify Your Email", email, f"Your verification code is: {verification_code}"):
+                # Store user data in session temporarily
+                session['pending_user'] = {
                     "name": name,
                     "email": email,
                     "password": password,
                     "chronic_conditions": chronic_conditions
                 }
-            }
-            close_db_connection(db)
-            return jsonify({"success": True, "message": "Verification email sent."})
+                close_db_connection(db)
+                return jsonify({"success": True, "message": "Verification email sent."})
         close_db_connection(db)
     return jsonify({"success": False, "message": "Failed to send verification email."})
 
@@ -279,29 +279,29 @@ def signup():
 def verify_email():
     data = request.get_json()
     email = data['email']
-    code = int(data['code'])
-
-    stored_code_info = verification_codes.get(email)
-    if not stored_code_info or stored_code_info["code"] != code or time.time() - stored_code_info["timestamp"] > 600:
-        return jsonify({"success": False, "message": "Invalid or expired verification code."})
-
-    user_data = stored_code_info["user_data"]
-    db = get_db_connection()
-    if db:
-        cursor = db.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                "INSERT INTO users (full_name, email, password, email_verified, chronic_conditions) VALUES (%s, %s, %s, TRUE, %s)",
-                (user_data["name"], user_data["email"], user_data["password"], user_data["chronic_conditions"])
-            )
-            db.commit()
-            del verification_codes[email]
-            close_db_connection(db)
-            return jsonify({"success": True, "message": "Email verified successfully."})
-        except mysql.connector.Error as err:
-            close_db_connection(db)
-            return jsonify({"success": False, "message": f"Error verifying email: {err}"})
-    return jsonify({"success": False, "message": "Database connection failed."})
+    code = data['code']
+    
+    if verify_code(email, code, 'signup'):
+        user_data = session.get('pending_user')
+        if not user_data:
+            return jsonify({"success": False, "message": "User data not found. Please try signing up again."})
+            
+        db = get_db_connection()
+        if db:
+            cursor = db.cursor(dictionary=True)
+            try:
+                cursor.execute(
+                    "INSERT INTO users (full_name, email, password, email_verified, chronic_conditions) VALUES (%s, %s, %s, TRUE, %s)",
+                    (user_data["name"], user_data["email"], user_data["password"], user_data["chronic_conditions"])
+                )
+                db.commit()
+                session.pop('pending_user', None)  # Clear temporary data
+                return jsonify({"success": True, "message": "Email verified successfully."})
+            except mysql.connector.Error as err:
+                return jsonify({"success": False, "message": f"Error verifying email: {err}"})
+            finally:
+                close_db_connection(db)
+    return jsonify({"success": False, "message": "Invalid or expired verification code."})
 
 
 @app.route('/login', methods=['POST'])
@@ -754,6 +754,85 @@ def customize_meal_plan(plan_id):
             'status': 'error',
             'message': str(e)
         }), 500
+
+
+def store_verification_code(email, code, type='signup'):
+    db = get_db_connection()
+    if db:
+        cursor = db.cursor()
+        try:
+            # Delete any existing codes for this email
+            cursor.execute("DELETE FROM verification_codes WHERE email = %s", (email,))
+            # Insert new code
+            cursor.execute(
+                "INSERT INTO verification_codes (email, code, type) VALUES (%s, %s, %s)",
+                (email, str(code), type)
+            )
+            db.commit()
+            return True
+        except Exception as e:
+            print(f"Error storing verification code: {e}")
+            return False
+        finally:
+            close_db_connection(db)
+    return False
+
+def verify_code(email, code, type='signup'):
+    db = get_db_connection()
+    if db:
+        cursor = db.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                """SELECT * FROM verification_codes 
+                WHERE email = %s AND code = %s AND type = %s 
+                AND timestamp > NOW() - INTERVAL 10 MINUTE""",
+                (email, str(code), type)
+            )
+            result = cursor.fetchone()
+            if result:
+                # Delete the used code
+                cursor.execute("DELETE FROM verification_codes WHERE email = %s", (email,))
+                db.commit()
+                return True
+            return False
+        finally:
+            close_db_connection(db)
+    return False
+
+
+@app.route('/send-otp', methods=['POST'])
+def send_otp():
+    data = request.get_json()
+    email = data.get('email')
+    type = data.get('type', 'signup')
+    
+    if not email:
+        return jsonify({'success': False, 'message': 'Email is required'})
+        
+    # Generate OTP
+    otp = generate_otp()
+    
+    # Store in database
+    if store_verification_code(email, otp, type):
+        # Send email
+        subject = 'Password Reset OTP' if type == 'reset' else 'Email Verification'
+        message = f'Your {subject} code is: {otp}'
+        if send_email(subject, email, message):
+            return jsonify({'success': True})
+    
+    return jsonify({'success': False, 'message': 'Failed to send OTP'})
+
+@app.route('/verify-otp', methods=['POST'])
+def verify_otp():
+    data = request.get_json()
+    email = data.get('email')
+    code = data.get('code')
+    type = data.get('type', 'signup')
+    
+    if verify_code(email, code, type):
+        return jsonify({'success': True})
+    
+    return jsonify({'success': False, 'message': 'Invalid or expired code'})
 
 
 if __name__ == "__main__":
