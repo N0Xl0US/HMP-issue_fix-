@@ -273,4 +273,67 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initial update
         updateSelectedConditions();
     }
+
+    // Add these functions near the top of the file
+    function showVerificationForm(email) {
+        const modal = document.getElementById('verificationModal');
+        const emailInput = document.getElementById('verificationEmail');
+        if (modal && emailInput) {
+            emailInput.value = email;
+            modal.style.display = 'block';
+        }
+    }
+
+    function showMessage(elementId, message, type = 'error') {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = message;
+            element.style.display = message ? 'block' : 'none';
+            element.className = `message ${type}`;
+        }
+    }
+
+    // Add this after your existing event listeners
+    const verificationForm = document.querySelector('#verificationModal form');
+    if (verificationForm) {
+        verificationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('verificationEmail').value;
+            const code = document.getElementById('verificationCode').value;
+            
+            try {
+                const response = await fetch('/verify-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    showMessage('verificationError', data.message || 'Verification failed');
+                }
+            } catch (error) {
+                console.error('Error during verification:', error);
+                showMessage('verificationError', 'An unexpected error occurred');
+            }
+        });
+    }
+
+    // Add modal close functionality
+    const closeBtn = document.querySelector('.modal .close');
+    if (closeBtn) {
+        closeBtn.onclick = function() {
+            document.getElementById('verificationModal').style.display = 'none';
+        }
+    }
+
+    // Close modal when clicking outside of it
+    window.onclick = function(event) {
+        const modal = document.getElementById('verificationModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
 });

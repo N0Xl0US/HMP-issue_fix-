@@ -95,15 +95,15 @@
 
         <div id="verificationModal" class="modal">
             <div class="modal-content">
+                <span class="close">&times;</span>
                 <h2>Email Verification</h2>
                 <p>Please enter the verification code sent to your email:</p>
-                <form action="/verify-email" method="POST">
+                <form id="verificationForm">
                     <input type="hidden" name="email" id="verificationEmail" value="" />
                     <input type="text" name="code" id="verificationCode" placeholder="Enter code" required />
-                    <input type="hidden" name="password" id="verificationPassword" value="" />
                     <button type="submit" id="verifyButton">Verify</button>
                 </form>
-                <p id="verificationError" style="color: red; display: none;">Invalid code. Please try again.</p>
+                <p id="verificationError" class="message error" style="display: none;"></p>
             </div>
         </div>
     </div>
