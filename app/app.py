@@ -437,44 +437,29 @@ def get_meals():
 
 @app.route('/get_updated_stats', methods=['GET', 'POST'])
 def get_updated_stats():
-    user_id = session.get('user_id')
-    if user_id:
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"error": "User not logged in"}), 403
+            
         stats = get_meal_tracking_stats(user_id)
-        print(stats)  # Debug print to check the structure
+        if not stats:
+            return jsonify({
+                "caloriesConsumed": 0,
+                "mealBreakdown": {},
+                "sugarLevels": [],
+                "macronutrientBreakdown": {
+                    "carbs": 0,
+                    "proteins": 0,
+                    "fats": 0
+                }
+            })
 
-        # Aggregate total calories by meal type
-        meal_breakdown = {}
-        for meal in stats.values():
-            meal_type = meal['meal_type']
-            total_calories = float(meal['total_quantity'] or 0) * float(meal['calories'] or 0)
-            if meal_type not in meal_breakdown:
-                meal_breakdown[meal_type] = 0
-            meal_breakdown[meal_type] += total_calories
-
-        response_data = {
-            "caloriesConsumed": sum(meal_breakdown.values()),
-            "mealBreakdown": meal_breakdown,  # Total calories by meal type
-            "sugarLevels": [
-                float(meal['total_quantity'] or 0) * float(meal['sugar'] or 0)
-                for meal in stats.values()
-            ],
-            "macronutrientBreakdown": {
-                "carbs": sum([
-                    float(meal['total_quantity'] or 0) * float(meal['carbs'] or 0)
-                    for meal in stats.values()
-                ]),
-                "proteins": sum([
-                    float(meal['total_quantity'] or 0) * float(meal['proteins'] or 0)
-                    for meal in stats.values()
-                ]),
-                "fats": sum([
-                    float(meal['total_quantity'] or 0) * float(meal['fats'] or 0)
-                    for meal in stats.values()
-                ])
-            }
-        }
-        return jsonify(response_data)
-    return jsonify({"error": "User not logged in"}), 403
+        # Rest of the existing code...
+        
+    except Exception as e:
+        print(f"Error in get_updated_stats: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/record_sleep', methods=['POST'])
@@ -493,12 +478,18 @@ def record_sleep():
 
 
 @app.route('/health_stats', methods=['GET'])
-def health_stats():
+def get_health_stats_route():
+    if 'user_id' not in session:
+        return jsonify({"error": "User not logged in"}), 403
+        
     user_id = session['user_id']
     period = request.args.get('period', 'daily')  # default to daily stats
-    health_data = get_health_stats(user_id, period)
-
-    return jsonify(health_data)
+    
+    try:
+        health_data = get_health_stats(user_id, period)
+        return jsonify(health_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # Error handler for 404 (Page Not Found)

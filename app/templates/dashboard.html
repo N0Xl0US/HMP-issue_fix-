@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NutriMate - Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <style>
         :root {
-            --bg-color: #18181b;
-            --text-color: #f9fafb;
-            --card-bg: #27272a;
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --card-bg: #f3f4f6;
             --primary-color: #3b82f6;
             --secondary-color: #9ca3af;
         }
@@ -22,10 +23,10 @@
             padding: 0;
         }
 
-        .dark-mode {
-            --bg-color: #ffffff;
-            --text-color: #000000;
-            --card-bg: #f3f4f6;
+        body.dark-mode {
+            --bg-color: #18181b;
+            --text-color: #f9fafb;
+            --card-bg: #27272a;
         }
 
         .dashboard {
@@ -194,6 +195,29 @@
             color: #e5e7eb;
             transition: color 0.3s ease;
             }
+
+        .stats-summary {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        .stats-summary p {
+            margin: 5px 0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 250px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -238,64 +262,43 @@
         <div class="card dark-text">
             <h3 class="dark-text">Calories Intake</h3>
             <div class="chart-container">
-                <canvas id="caloriesChart"></canvas>
+                <canvas id="calorieChart"></canvas>
             </div>
-            <p><strong>Consumed:</strong> <span id="caloriesConsumed">0 kcal</span></p>
-            <p><strong>Remaining:</strong> <span id="caloriesRemaining">2000 kcal</span></p>
+            <div class="stats-summary">
+                <p><strong>Average Daily Calories:</strong> <span id="avg-calories">0</span> kcal</p>
+                <p><strong>Consumed Today:</strong> <span id="caloriesConsumed">0 kcal</span></p>
+                <p><strong>Remaining:</strong> <span id="caloriesRemaining">2000 kcal</span></p>
+            </div>
         </div>
 
-        <!-- Meals Section -->
+        <!-- Sleep Section -->
         <div class="card">
-            <h3>Meals Breakdown</h3>
+            <h3>Sleep Tracking</h3>
             <div class="chart-container">
-                <canvas id="mealsChart"></canvas>
+                <canvas id="sleepChart"></canvas>
             </div>
-            <p id="Breakfast"><strong>Breakfast:</strong>0 kcal</p>
-            <p id="Lunch"><strong>Lunch:</strong>0 kcal</p>
-            <p id="Dinner"><strong>Dinner:</strong>0 kcal</p>
-            <p id="Snack"><strong>Snack:</strong>0 kcal</p>
+            <div class="stats-summary">
+                <p><strong>Average Sleep:</strong> <span id="avg-sleep">0</span> hours</p>
+                <p><strong>Average Quality:</strong> <span id="avg-quality">0</span>/10</p>
+            </div>
         </div>
 
-        <!-- Sugar Levels -->
-        <div class="card">
-            <h3>Sugar Levels</h3>
-            <div class="chart-container">
-                <canvas id="sugarChart"></canvas>
-            </div>
-            <p><strong>Current:</strong> 110 mg/dL</p>
-            <p><strong>Target:</strong> Below 140 mg/dL</p>
-        </div>
-
-        <!-- Macronutrient Breakdown -->
+        <!-- Macronutrient Section -->
         <div class="card">
             <h3>Macronutrient Breakdown</h3>
             <div class="chart-container">
-                <canvas id="macronutrientChart"></canvas>
+                <canvas id="macroChart"></canvas>
             </div>
-            <p id="Carbs"><strong>Carb:</strong> 0%</p>
-            <p id="Proteins"><strong>Protein:</strong> 0%</p>
-            <p id="Fats"><strong>Fats:</strong> 0%</p>
+            <div class="stats-summary">
+                <p id="Carbs"><strong>Carbs:</strong> 0%</p>
+                <p id="Proteins"><strong>Protein:</strong> 0%</p>
+                <p id="Fats"><strong>Fats:</strong> 0%</p>
+            </div>
         </div>
-
-        <!-- Sleep Tracker -->
-        <div class="card">
-            <h3>Sleep Tracker</h3>
-            <div class="progress-wrapper">
-                <div class="progress-bar" style="width: 75%;"></div>
-            </div>
-            <p><strong>Hours Slept:</strong> 6/8 hours</p>
-        </div>
-
-        <div class="card">
-            <h3>Overall Health</h3>
-            <div class="chart-container">
-                <canvas id="overallHealthChart"></canvas>
-            </div>
-            <div class="timeframe-toggle">
-                <button id="weeklyView">Weekly</button>
-                <button id="monthlyView">Monthly</button>
-                <button id="yearlyView">Yearly</button>
-            </div>
+        <div class="chart-controls">
+            <button id="weeklyView" class="btn">Weekly</button>
+            <button id="monthlyView" class="btn">Monthly</button>
+            <button id="yearlyView" class="btn">Yearly</button>
         </div>
     </div>
 

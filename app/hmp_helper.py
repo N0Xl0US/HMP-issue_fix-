@@ -1,4 +1,3 @@
-
 from config import Config
 import mysql.connector
 from datetime import datetime, timedelta
@@ -156,67 +155,64 @@ def record_sleep(user_id, sleep_duration, sleep_quality):
 
 
 def get_health_stats(user_id, period='daily'):
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}
+
+    cursor = db.cursor(dictionary=True)
+    
     try:
-        db = get_db_connection()
-        if db:
-            cursor = db.cursor()
-
-            # Calculate the date range based on the period (daily, weekly, monthly, yearly)
-            if period == 'daily':
-                start_date = datetime.now().date()
-                end_date = start_date
-            elif period == 'weekly':
-                end_date = datetime.now().date()
-                start_date = end_date - timedelta(weeks=1)
-            elif period == 'monthly':
-                end_date = datetime.now().date()
-                start_date = end_date.replace(day=1)
-            elif period == 'yearly':
-                end_date = datetime.now().date()
-                start_date = end_date.replace(month=1, day=1)
-
-            # Retrieve meal stats within the specified period
-            stats_query = """
-                SELECT SUM(total_calories) AS total_calories,
-                       SUM(total_carbs) AS total_carbs,
-                       SUM(total_proteins) AS total_proteins,
-                       SUM(total_fats) AS total_fats,
-                       SUM(total_sugar) AS total_sugar,
-                       SUM(total_sodium) AS total_sodium
-                FROM user_meal_stats
-                WHERE user_id = %s AND date >= %s AND date <= %s
+        if period == 'weekly':
+            # Get last 7 days of data
+            query = """
+                SELECT 
+                    DATE(tracked_at) as date,
+                    SUM(calories) as total_calories,
+                    AVG(sleep_duration) as avg_sleep,
+                    AVG(sleep_quality) as avg_sleep_quality
+                FROM health_tracking
+                WHERE user_id = %s 
+                AND tracked_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                GROUP BY DATE(tracked_at)
+                ORDER BY date
             """
-            cursor.execute(stats_query, (user_id, start_date, end_date))
-            meal_stats = cursor.fetchone()
-
-            # Retrieve sleep stats within the specified period
-            sleep_query = """
-                SELECT SUM(sleep_duration) AS total_sleep_duration,
-                       AVG(sleep_quality) AS avg_sleep_quality
-                FROM user_sleep
-                WHERE user_id = %s AND date >= %s AND date <= %s
+        else:
+            # Get today's data
+            query = """
+                SELECT 
+                    DATE(tracked_at) as date,
+                    SUM(calories) as total_calories,
+                    AVG(sleep_duration) as avg_sleep,
+                    AVG(sleep_quality) as avg_sleep_quality
+                FROM health_tracking
+                WHERE user_id = %s 
+                AND DATE(tracked_at) = CURDATE()
+                GROUP BY DATE(tracked_at)
             """
-            cursor.execute(sleep_query, (user_id, start_date, end_date))
-            sleep_stats = cursor.fetchone()
-
-            health_data = {
-                'meal_stats': meal_stats,
-                'sleep_stats': sleep_stats
-            }
-            return health_data
-    except mysql.connector.Error as err:
-        print(f"Error retrieving health stats: {err}")
+            
+        cursor.execute(query, (user_id,))
+        results = cursor.fetchall()
+        
+        return {
+            "success": True,
+            "data": results
+        }
+        
+    except Exception as e:
+        return {"error": str(e)}
     finally:
-        if db:
-            db.close()
-
-    return {}
+        cursor.close()
+        close_db_connection(db)
 
 
 def get_meal_data_by_id(meal_id):
+    connection = None
     try:
         connection = get_db_connection()
-        cursor = connection.cursor()
+        if not connection:
+            return None
+            
+        cursor = connection.cursor(dictionary=True)
         query = """
             SELECT meal_name, calories, sugar, carbs, proteins, fats
             FROM meals
@@ -224,20 +220,19 @@ def get_meal_data_by_id(meal_id):
         """
         cursor.execute(query, (meal_id,))
         meal_data = cursor.fetchone()
-
         cursor.close()
-
-        if meal_data:
-            return {
-                "meal_name": meal_data['meal_name'],
-                "calories": meal_data['calories'],
-                "sugar": meal_data['sugar'],
-                "carbs": meal_data['carbs'],
-                "proteins": meal_data['proteins'],
-                "fats": meal_data['fats']
-            }
-        else:
-            return None
+        
+        return meal_data and {
+            "meal_name": meal_data['meal_name'],
+            "calories": meal_data['calories'],
+            "sugar": meal_data['sugar'],
+            "carbs": meal_data['carbs'],
+            "proteins": meal_data['proteins'],
+            "fats": meal_data['fats']
+        }
     except Exception as e:
         print(f"Error fetching meal data: {e}")
         return None
+    finally:
+        if connection:
+            connection.close()

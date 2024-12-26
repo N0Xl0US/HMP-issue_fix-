@@ -43,84 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Chart Configuration
     const darkMode = { backgroundColor: '#18181b', gridColor: '#27272a', textColor: '#9ca3af' };
 
-    // Initialize Charts
-    const caloriesChart = new Chart(document.getElementById('caloriesChart'), {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [0, 2000],
-                backgroundColor: ['#3b82f6', '#27272a'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '80%',
-            plugins: { legend: { display: false } }
-        }
-    });
-
-    const mealsChart = new Chart(document.getElementById('mealsChart'), {
-        type: 'pie',
-        data: {
-            labels: ['Breakfast', 'Lunch', 'Dinner', 'Snack'],
-            datasets: [{
-                data: [0, 0, 0, 0],
-                backgroundColor: ['#3b82f6', '#a855f7', '#f59e0b', '#90EE90'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: true, labels: { color: darkMode.textColor } } }
-        }
-    });
-
-    const sugarChart = new Chart(document.getElementById('sugarChart'), {
-        type: 'line',
-        data: {
-            labels: Array(7).fill('').map((_, i) => `Day ${i + 1}`),
-            datasets: [{
-                data: [0, 0, 0, 0, 0, 0, 0],
-                borderColor: '#f43f5e',
-                tension: 0.4,
-                borderWidth: 2,
-                fill: false
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { ticks: { color: darkMode.textColor } },
-                y: { ticks: { color: darkMode.textColor, beginAtZero: true } }
-            }
-        }
-    });
-
-    const macronutrientChart = new Chart(document.getElementById('macronutrientChart'), {
-        type: 'bar',
-        data: {
-            labels: ['Carbs', 'Proteins', 'Fats'],
-            datasets: [{
-                data: [0, 0, 0],
-                backgroundColor: ['#3b82f6', '#a855f7', '#f59e0b'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { ticks: { color: darkMode.textColor } },
-                y: { ticks: { color: darkMode.textColor, beginAtZero: true } }
-            }
-        }
-    });
 
     // Fetch and populate meals dropdown
     const mealSelect = document.getElementById('meal');
@@ -152,9 +74,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('mealForm').addEventListener('submit', async function(event) {
         event.preventDefault();
         const mealData = {
-            meal_id: document.getElementById('meal').value,
-            meal_type: document.getElementById('mealType').value,
-            feedback: document.getElementById('feedback').value,
+            meal_id : document.getElementById('meal').value,
+            meal_type : document.getElementById('mealType').value,
+            feedback : document.getElementById('feedback').value,
+            quantity : 1
         };
 
         try {
@@ -181,27 +104,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function updateStats() {
         try {
             const response = await fetch('/get_updated_stats');
-            const stats = await response.json();
-            
-            if (stats.error) {
-                console.error('Error fetching updated stats:', stats.error);
-                return;
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            // Update calories
-            const caloriesConsumed = stats.caloriesConsumed || 0;
-            const caloriesRemaining = 2000 - caloriesConsumed;
-            document.getElementById('caloriesConsumed').textContent = `${caloriesConsumed} kcal`;
-            document.getElementById('caloriesRemaining').textContent = `${caloriesRemaining} kcal`;
+            const data = await response.json();
             
-            // Update charts with new data
-            updateCharts(stats);
+            if (data.error) {
+                throw new Error(data.error);
+            }
             
-            // Update macronutrient percentages
-            updateMacronutrients(stats.macronutrientBreakdown);
+            updateCharts(data);
         } catch (error) {
             console.error('Error fetching updated stats:', error);
-            alert("Unable to fetch updated stats. Please try again later.");
         }
     }
 
@@ -210,24 +124,182 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('monthlyView').addEventListener('click', () => loadHealthData('monthly'));
     document.getElementById('yearlyView').addEventListener('click', () => loadHealthData('yearly'));
 
-    async function loadHealthData(view) {
+    async function loadHealthData(view = 'daily') {
         try {
-            const response = await fetch(`/get_health_stats?view=${view}`);
+            const response = await fetch(`/health_stats?period=${view}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const data = await response.json();
-
+            
             if (data.error) {
-                console.error('Error fetching health stats:', data.error);
-                return;
+                throw new Error(data.error);
             }
-
-            const overallHealthChart = Chart.getChart('overallHealthChart');
-            if (overallHealthChart) {
-                overallHealthChart.data.labels = data.labels;
-                overallHealthChart.data.datasets[0].data = data.values;
-                overallHealthChart.update();
-            }
+            
+            updateCharts(data.data);
+            return data;
         } catch (error) {
             console.error('Error loading health data:', error);
+        }
+    }
+
+    async function updateCharts(data) {
+        try {
+            // Destroy existing charts if they exist
+            if (window.calorieChart) window.calorieChart.destroy();
+            if (window.sleepChart) window.sleepChart.destroy();
+            if (window.macroChart) window.macroChart.destroy();
+
+            // Format dates and extract data
+            const dates = data.map(entry => new Date(entry.date).toLocaleDateString());
+            const calories = data.map(entry => entry.total_calories || 0);
+            const sleepDuration = data.map(entry => entry.avg_sleep || 0);
+            const sleepQuality = data.map(entry => entry.avg_sleep_quality || 0);
+
+            // Calorie Chart
+            const calorieCtx = document.getElementById('calorieChart').getContext('2d');
+            window.calorieChart = new Chart(calorieCtx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Calories Consumed',
+                        data: calories,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Calories'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Daily Calorie Intake'
+                        }
+                    }
+                }
+            });
+
+            // Sleep Chart
+            const sleepCtx = document.getElementById('sleepChart').getContext('2d');
+            window.sleepChart = new Chart(sleepCtx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Sleep Duration (hours)',
+                        data: sleepDuration,
+                        borderColor: 'rgb(54, 162, 235)',
+                        yAxisID: 'duration',
+                        tension: 0.1
+                    }, {
+                        label: 'Sleep Quality (1-10)',
+                        data: sleepQuality,
+                        borderColor: 'rgb(255, 99, 132)',
+                        yAxisID: 'quality',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        duration: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Hours'
+                            }
+                        },
+                        quality: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Quality (1-10)'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Sleep Tracking'
+                        }
+                    }
+                }
+            });
+
+            // Update summary statistics
+            if (data.length > 0) {
+                const avgCalories = calories.reduce((a, b) => a + b, 0) / calories.length;
+                const avgSleep = sleepDuration.reduce((a, b) => a + b, 0) / sleepDuration.length;
+                const avgQuality = sleepQuality.reduce((a, b) => a + b, 0) / sleepQuality.length;
+
+                // Update summary elements if they exist
+                const summaryElements = {
+                    'avg-calories': Math.round(avgCalories),
+                    'avg-sleep': avgSleep.toFixed(1),
+                    'avg-quality': avgQuality.toFixed(1)
+                };
+
+                for (const [id, value] of Object.entries(summaryElements)) {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = value;
+                }
+            }
+
+            // If macronutrient data is available
+            if (data.macronutrientBreakdown) {
+                const macroCtx = document.getElementById('macroChart').getContext('2d');
+                window.macroChart = new Chart(macroCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Proteins', 'Carbs', 'Fats'],
+                        datasets: [{
+                            data: [
+                                data.macronutrientBreakdown.proteins || 0,
+                                data.macronutrientBreakdown.carbs || 0,
+                                data.macronutrientBreakdown.fats || 0
+                            ],
+                            backgroundColor: [
+                                'rgb(255, 99, 132)',
+                                'rgb(54, 162, 235)',
+                                'rgb(255, 205, 86)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Macronutrient Distribution'
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error updating charts:', error);
+            // Show user-friendly error message
+            displayNotification({
+                type: 'error',
+                message: 'Failed to update charts',
+                suggestions: ['Please refresh the page and try again']
+            });
         }
     }
 
