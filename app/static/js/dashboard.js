@@ -124,11 +124,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         try {
+            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const response = await fetch('/add_meal', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': document.querySelector('input[name="csrf_token"]').value 
+                    'X-CSRF-Token': token
                 },
                 body: JSON.stringify(mealData)
             });

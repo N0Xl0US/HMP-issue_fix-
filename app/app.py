@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 from typing import List, Dict
 from datetime import datetime, timedelta
 from functools import wraps
+from flask_wtf.csrf import CSRFProtect
 
 from hmp_helper import get_db_connection, close_db_connection, add_meal_to_tracking, get_health_stats
 from config import Config
@@ -22,6 +23,8 @@ app.config["SESSION_FILE_DIR"] = "./flask_session_cache"
 Session(app)
 
 verification_codes = {}
+
+csrf = CSRFProtect()
 
 class MealPlanner:
     def __init__(self, db_connection):
@@ -455,7 +458,6 @@ def get_updated_stats():
                 }
             })
 
-        # Rest of the existing code...
         
     except Exception as e:
         print(f"Error in get_updated_stats: {e}")
