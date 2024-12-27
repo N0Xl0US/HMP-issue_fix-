@@ -1,24 +1,67 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    // Dark Mode Handling
-    const darkModeToggle = document.getElementById('darkModeToggle');
-    const applyDarkMode = (isDark) => {
-        if (isDark) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
+    const cleanup = () => {
+        // Remove event listeners
+        ['weeklyView', 'monthlyView', 'yearlyView'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.removeEventListener('click', element.clickHandler);
+            }
+        });
     };
 
-    // Load the saved dark mode preference
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-    applyDarkMode(savedDarkMode);
-
-    // Toggle dark mode
-    darkModeToggle.addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('dark-mode');
-        localStorage.setItem('darkMode', isDark);
-        applyDarkMode(isDark);
+    // Add event listeners with stored references
+    ['weeklyView', 'monthlyView', 'yearlyView'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.clickHandler = () => loadHealthData(id.replace('View', ''));
+            element.addEventListener('click', element.clickHandler);
+        }
     });
+
+    // Clean up on page unload
+    window.addEventListener('unload', () => {
+        cleanup();
+        EventManager.cleanup();
+        cleanupCharts();
+    });
+
+    // Dark Mode Handling
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (darkModeToggle) {
+        const applyDarkMode = async (isDark) => {
+            try {
+                if (isDark) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+                await updateChartThemes(isDark);
+            } catch (error) {
+                console.error('Error applying dark mode:', error);
+                throw error;
+            }
+        };
+
+        // Load the saved dark mode preference
+        const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+        applyDarkMode(savedDarkMode);
+
+        // Toggle dark mode
+        darkModeToggle.addEventListener('click', async () => {
+            try {
+                const isDark = document.body.classList.toggle('dark-mode');
+                localStorage.setItem('darkMode', isDark);
+                await applyDarkMode(isDark);
+            } catch (error) {
+                console.error('Error toggling dark mode:', error);
+                NotificationQueue.add({
+                    type: 'error',
+                    message: 'Failed to toggle dark mode',
+                    suggestions: ['Please refresh the page and try again']
+                });
+            }
+        });
+    }
 
     // Logout Button
     document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -83,7 +126,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch('/add_meal', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': document.querySelector('input[name="csrf_token"]').value 
+                },
                 body: JSON.stringify(mealData)
             });
 
@@ -119,14 +165,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Health data view handlers
-    document.getElementById('weeklyView').addEventListener('click', () => loadHealthData('weekly'));
-    document.getElementById('monthlyView').addEventListener('click', () => loadHealthData('monthly'));
-    document.getElementById('yearlyView').addEventListener('click', () => loadHealthData('yearly'));
+    
+    let isLoadingHealthData = false;
+    let currentHealthDataRequest = null;
+
+    const debounce = (fn, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fn(...args), delay);
+        };
+    };
+
+    const debouncedLoadHealthData = debounce(loadHealthData, 300);
 
     async function loadHealthData(view = 'daily') {
+        const validViews = ['daily', 'weekly', 'monthly', 'yearly'];
+        if (!validViews.includes(view)) {
+            console.error('Invalid view parameter:', view);
+            return;
+        }
+        
+        if (isLoadingHealthData) return;
+        
         try {
-            const response = await fetch(`/health_stats?period=${view}`);
+            isLoadingHealthData = true;
+            
+            // Cancel previous request if exists
+            if (currentHealthDataRequest) {
+                currentHealthDataRequest.abort();
+            }
+
+            const controller = new AbortController();
+            currentHealthDataRequest = controller;
+
+            const response = await fetch(`/health_stats?period=${view}`, {
+                signal: controller.signal
+            });
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -139,22 +215,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateCharts(data.data);
             return data;
         } catch (error) {
-            console.error('Error loading health data:', error);
+            if (error.name === 'AbortError') {
+                console.log('Request was cancelled');
+            } else {
+                console.error('Error loading health data:', error);
+            }
+        } finally {
+            isLoadingHealthData = false;
+            currentHealthDataRequest = null;
         }
     }
 
     async function updateCharts(data) {
         try {
-            // Destroy existing charts if they exist
-            if (window.calorieChart) window.calorieChart.destroy();
-            if (window.sleepChart) window.sleepChart.destroy();
-            if (window.macroChart) window.macroChart.destroy();
+            const chartElements = {
+                calorieChart: document.getElementById('calorieChart'),
+                sleepChart: document.getElementById('sleepChart'),
+                macroChart: document.getElementById('macroChart')
+            };
+
+            // Verify all required elements exist
+            for (const [key, element] of Object.entries(chartElements)) {
+                if (!element) {
+                    throw new Error(`Required chart element '${key}' not found`);
+                }
+            }
+
+            // Destroy existing charts
+            ['calorieChart', 'sleepChart', 'macroChart'].forEach(chartId => {
+                if (window[chartId] instanceof Chart) {
+                    window[chartId].destroy();
+                }
+            });
 
             // Format dates and extract data
-            const dates = data.map(entry => new Date(entry.date).toLocaleDateString());
-            const calories = data.map(entry => entry.total_calories || 0);
-            const sleepDuration = data.map(entry => entry.avg_sleep || 0);
-            const sleepQuality = data.map(entry => entry.avg_sleep_quality || 0);
+            if (!Array.isArray(data)) {
+                throw new Error('Invalid data format: expected array');
+            }
+
+            // Validate date entries
+            const dates = data.map(entry => {
+                if (!entry.date) {
+                    throw new Error('Missing date in data entry');
+                }
+                return new Date(entry.date).toLocaleDateString();
+            });
+
+            // Add type checking for numerical values
+            const validateNumber = (value, fieldName) => {
+                const num = Number(value);
+                if (isNaN(num)) {
+                    throw new Error(`Invalid ${fieldName}: expected number, got ${typeof value}`);
+                }
+                return num || 0;
+            };
+
+            const calories = data.map(entry => validateNumber(entry.total_calories, 'calories'));
+            const sleepDuration = data.map(entry => validateNumber(entry.avg_sleep, 'sleep duration'));
+            const sleepQuality = data.map(entry => validateNumber(entry.avg_sleep_quality, 'sleep quality'));
 
             // Calorie Chart
             const calorieCtx = document.getElementById('calorieChart').getContext('2d');
@@ -244,17 +362,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Update summary statistics
             if (data.length > 0) {
-                const avgCalories = calories.reduce((a, b) => a + b, 0) / calories.length;
-                const avgSleep = sleepDuration.reduce((a, b) => a + b, 0) / sleepDuration.length;
-                const avgQuality = sleepQuality.reduce((a, b) => a + b, 0) / sleepQuality.length;
-
-                // Update summary elements if they exist
                 const summaryElements = {
-                    'avg-calories': Math.round(avgCalories),
-                    'avg-sleep': avgSleep.toFixed(1),
-                    'avg-quality': avgQuality.toFixed(1)
+                    'avg-calories': Math.round(calculateAverage(calories)),
+                    'avg-sleep': calculateAverage(sleepDuration, 0).toFixed(1),
+                    'avg-quality': calculateAverage(sleepQuality, 0).toFixed(1)
                 };
-
+                
                 for (const [id, value] of Object.entries(summaryElements)) {
                     const element = document.getElementById(id);
                     if (element) element.textContent = value;
@@ -294,7 +407,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error('Error updating charts:', error);
-            // Show user-friendly error message
             displayNotification({
                 type: 'error',
                 message: 'Failed to update charts',
@@ -303,25 +415,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    function cleanupCharts() {
+        const chartIds = ['calorieChart', 'sleepChart', 'macroChart'];
+        chartIds.forEach(chartId => {
+            if (window[chartId]) {
+                window[chartId].destroy();
+                window[chartId] = null;
+            }
+        });
+    }
+
     // Notification System
     function displayNotification(notification) {
+        if (!notification || typeof notification !== 'object') {
+            console.error('Invalid notification data');
+            return;
+        }
+
+        // Validate required fields
+        if (!notification.message) {
+            console.error('Notification message is required');
+            return;
+        }
+
+        // Sanitize input
+        const sanitizeHTML = (str) => {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+
+        const message = sanitizeHTML(notification.message);
+        const type = notification.type || 'info';
+        
         let notificationsContainer = document.querySelector('.notifications-container');
         if (!notificationsContainer) {
             notificationsContainer = document.createElement('div');
             notificationsContainer.className = 'notifications-container';
             document.body.appendChild(notificationsContainer);
         }
-
+    
         const notifDiv = document.createElement('div');
-        notifDiv.className = `notification ${notification.type}`;
+        notifDiv.className = `notification ${type}`;
         
-        const current = Math.round(notification.current * 10) / 10;
-        const limit = Math.round(notification.limit * 10) / 10;
-        const percentage = Math.round((current / limit) * 100);
+        const current = notification.current ? Math.round(notification.current * 10) / 10 : 0;
+        const limit = notification.limit ? Math.round(notification.limit * 10) / 10 : 100;
+        const percentage = limit ? Math.round((current / limit) * 100) : 0;
         
         let notifContent = `
             <div class="notification-header">
-                <h4>${notification.message}</h4>
+                <h4>${message}</h4>
                 <button class="close-notification" onclick="this.parentElement.parentElement.remove()">×</button>
             </div>
             <div class="notification-body">
@@ -351,10 +494,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         notifDiv.classList.add('notification-slide-in');
         notificationsContainer.insertBefore(notifDiv, notificationsContainer.firstChild);
         
-        setTimeout(() => {
+        let timeoutId;
+        
+        const removeNotification = () => {
+            clearTimeout(timeoutId);
             notifDiv.classList.add('notification-fade-out');
             setTimeout(() => notifDiv.remove(), 500);
-        }, 10000);
+        };
+        
+        timeoutId = setTimeout(removeNotification, 10000);
     }
 
     function handleNewNotifications(notifications) {
@@ -383,36 +531,154 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadHealthData('weekly');
     checkNotifications();
     
-    // Check for notifications every 30 seconds
-    setInterval(checkNotifications, 30000);
 
     // Function to fetch and display notifications
-    function loadNotifications() {
-        fetch('/get_notifications')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const notifications = data.notifications;
-                    // Example: Display in a notification area
-                    const notificationArea = document.getElementById('notification-area');
-                    notificationArea.innerHTML = '';
-                    
-                    notifications.forEach(notification => {
-                        const notifElement = document.createElement('div');
-                        notifElement.className = `notification ${notification.type}`;
-                        notifElement.innerHTML = `
-                            <p>${notification.message}</p>
-                            <small>${new Date(notification.created_at).toLocaleString()}</small>
-                        `;
-                        notificationArea.appendChild(notifElement);
-                    });
-                }
-            });
+    async function fetchNotifications() {
+        try {
+            const response = await fetch('/get_notifications');
+            const data = await response.json();
+            
+            if (data.success && data.notifications) {
+                handleNewNotifications(data.notifications);
+                updateNotificationArea(data.notifications);
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        }
     }
 
-    // Call this function when the dashboard loads
-    document.addEventListener('DOMContentLoaded', loadNotifications);
+    const notificationInterval = setInterval(fetchNotifications, NOTIFICATION_CHECK_INTERVAL);
 
-    // Optionally, refresh notifications periodically
-    setInterval(loadNotifications, 60000); // Update every minute
+    window.addEventListener('unload', () => {
+        clearInterval(notificationInterval);
+        cleanup();
+        EventManager.cleanup();
+        cleanupCharts();
+    });
+
+    const EventManager = {
+        listeners: new Map(),
+        
+        add(element, event, handler) {
+            if (!element) return;
+            
+            const key = `${element.id || 'anonymous'}-${event}`;
+            if (this.listeners.has(key)) {
+                this.remove(element, event);
+            }
+            
+            element.addEventListener(event, handler);
+            this.listeners.set(key, { element, event, handler });
+        },
+        
+        remove(element, event) {
+            const key = `${element.id || 'anonymous'}-${event}`;
+            const listener = this.listeners.get(key);
+            if (listener) {
+                listener.element.removeEventListener(listener.event, listener.handler);
+                this.listeners.delete(key);
+            }
+        },
+        
+        cleanup() {
+            this.listeners.forEach(listener => {
+                this.remove(listener.element, listener.event);
+            });
+        }
+    };
+
+    // Add this notification queue system
+    const NotificationQueue = {
+        queue: [],
+        isProcessing: false,
+        maxNotifications: 3,
+        
+        async add(notification) {
+            this.queue.push(notification);
+            if (!this.isProcessing) {
+                await this.processQueue();
+            }
+        },
+        
+        async processQueue() {
+            if (this.isProcessing || this.queue.length === 0) return;
+            
+            this.isProcessing = true;
+            
+            try {
+                const container = document.querySelector('.notifications-container');
+                if (!container) {
+                    console.error('Notifications container not found');
+                    return;
+                }
+                
+                while (this.queue.length > 0 && container.children.length < this.maxNotifications) {
+                    const notification = this.queue.shift();
+                    await this.displayNotification(notification);
+                }
+            } catch (error) {
+                console.error('Error processing notification queue:', error);
+            } finally {
+                this.isProcessing = false;
+            }
+        },
+        
+        async displayNotification(notification) {
+            return new Promise(resolve => {
+                const notifDiv = createNotificationElement(notification);
+                const container = document.querySelector('.notifications-container');
+                container.insertBefore(notifDiv, container.firstChild);
+                
+                setTimeout(() => {
+                    notifDiv.classList.add('notification-fade-out');
+                    setTimeout(() => {
+                        notifDiv.remove();
+                        resolve();
+                    }, 500);
+                }, 5000);
+            });
+        }
+    };
+
+    // Add this chart configuration system
+    const ChartConfigs = {
+        defaultOptions: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 750,
+                easing: 'easeInOutQuart'
+            }
+        },
+        
+        getColorScheme(isDark = false) {
+            return {
+                grid: isDark ? '#27272a' : '#e5e7eb',
+                text: isDark ? '#9ca3af' : '#374151',
+                line: isDark ? '#60a5fa' : '#3b82f6'
+            };
+        },
+        
+        applyTheme(config, isDark = false) {
+            const colors = this.getColorScheme(isDark);
+            
+            return {
+                ...config,
+                options: {
+                    ...this.defaultOptions,
+                    ...config.options,
+                    scales: {
+                        x: {
+                            grid: { color: colors.grid },
+                            ticks: { color: colors.text }
+                        },
+                        y: {
+                            grid: { color: colors.grid },
+                            ticks: { color: colors.text }
+                        }
+                    }
+                }
+            };
+        }
+    };
 }); 
